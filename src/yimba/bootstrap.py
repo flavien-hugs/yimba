@@ -23,6 +23,8 @@ from yimba.modules.collection.public import (
     DirectoryWatchCatalog,
     MentionsItemSink,
     PlanCollections,
+    PurgeRawItems,
+    SqlRawArchive,
     SqlRunRepository,
     TaskQueue,
     build_collectors,
@@ -84,9 +86,13 @@ class Container:
                 build_mention_ingestor(session, self.analyzer, self.clock, self.settings.AUTHOR_HASH_SALT)
             ),
             runs=SqlRunRepository(session),
+            archive=SqlRawArchive(session),
             clock=self.clock,
             limit=self.settings.COLLECTION_LIMIT,
         )
+
+    def purge_raw_items(self, session: AsyncSession) -> PurgeRawItems:
+        return PurgeRawItems(SqlRawArchive(session), self.clock, self.settings.RAW_RETENTION_DAYS)
 
     def plan_collections(self, session: AsyncSession, send_task: Callable[..., object]) -> PlanCollections:
         return PlanCollections(

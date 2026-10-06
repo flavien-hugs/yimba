@@ -51,6 +51,7 @@ def parse_rss(xml_text: str) -> list[CollectedItem]:
                 author_handle=_clean(node.findtext("source")) or None,
                 url=link or None,
                 published_at=published,
+                raw={child.tag: (child.text or "").strip() for child in node},
             )
         )
     return items

@@ -3,6 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from enum import StrEnum
+from typing import Any, Mapping
 
 from yimba.shared.source import SourceKind
 
@@ -12,7 +13,10 @@ STALE_RUN_AFTER = timedelta(minutes=30)
 
 @dataclass(frozen=True, slots=True)
 class CollectedItem:
-    """A publication as read from a source, already mapped to our vocabulary."""
+    """A publication as read from a source, already mapped to our vocabulary.
+
+    ``raw`` is the provider's payload, kept for a while so that items can be re-mapped after a fix.
+    """
 
     source: SourceKind
     external_id: str
@@ -24,6 +28,7 @@ class CollectedItem:
     shares: int = 0
     views: int = 0
     comments: int = 0
+    raw: Mapping[str, Any] | None = field(default=None, compare=False)
 
 
 @dataclass(frozen=True, slots=True)

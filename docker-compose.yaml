@@ -38,6 +38,13 @@ services:
         <<: *app
         command: ["beat"]
 
+    # Celery web UI (workers, queue, tasks). Bound to localhost; set FLOWER_BASIC_AUTH.
+    flower:
+        <<: *app
+        command: ["flower"]
+        ports:
+            - "127.0.0.1:${FLOWER_PORT:-5555}:5555"
+
     postgres:
         image: postgres:16
         restart: unless-stopped
@@ -62,5 +69,40 @@ services:
             timeout: 3s
             retries: 10
 
+    # ---- error tracking (optional): docker compose --profile observability up -------------------------------
+    # GlitchTip, self-hosted and open source, speaks the Sentry protocol. Create a project in its UI, then set
+    # SENTRY_DSN=http://<key>@glitchtip:8000/<project> (host "glitchtip", not localhost, from the containers).
+    glitchtip:
+        image: glitchtip/glitchtip:6
+        profiles: ["observability"]
+        restart: unless-stopped
+        depends_on:
+            - glitchtip-postgres
+        environment:
+            DATABASE_URL: "postgres://glitchtip:${GLITCHTIP_DB_PASSWORD:-glitchtip}@glitchtip-postgres:5432/glitchtip"
+            VALKEY_URL: "" # no Valkey: tasks and cache go through PostgreSQL (lighter)
+            SECRET_KEY: "${GLITCHTIP_SECRET_KEY:-}"
+            GLITCHTIP_DOMAIN: "${GLITCHTIP_DOMAIN:-http://localhost:8000}"
+            DEFAULT_FROM_EMAIL: "${GLITCHTIP_FROM_EMAIL:-glitchtip@localhost}"
+            EMAIL_URL: "${GLITCHTIP_EMAIL_URL:-consolemail://}"
+            SERVER_ROLE: all_in_one
+        ports:
+            - "127.0.0.1:${GLITCHTIP_PORT:-8000}:8000"
+        volumes:
+            - glitchtip_uploads:/code/uploads
+
+    glitchtip-postgres:
+        image: postgres:18
+        profiles: ["observability"]
+        restart: unless-stopped
+        environment:
+            POSTGRES_DB: glitchtip
+            POSTGRES_USER: glitchtip
+            POSTGRES_PASSWORD: "${GLITCHTIP_DB_PASSWORD:-glitchtip}"
+        volumes:
+            - glitchtip_pg:/var/lib/postgresql
+
 volumes:
     yimba_pg:
+    glitchtip_pg:
+    glitchtip_uploads:

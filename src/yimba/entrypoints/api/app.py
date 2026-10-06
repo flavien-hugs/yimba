@@ -11,6 +11,7 @@ from yimba import __version__
 from yimba.bootstrap import Container
 from yimba.config import Settings, get_settings
 from yimba.entrypoints.api.routers import alerts, health, mentions, watches
+from yimba.infrastructure.error_tracking import init_error_tracking
 from yimba.shared.errors import (
     Conflict,
     DomainError,
@@ -42,6 +43,7 @@ def _status_for(error: DomainError) -> int:
 
 def create_app(settings: Settings | None = None, container: Container | None = None) -> FastAPI:
     settings = settings or get_settings()
+    init_error_tracking(settings.SENTRY_DSN, settings.APP_ENV, "api")
     owns_container = container is None
 
     @asynccontextmanager

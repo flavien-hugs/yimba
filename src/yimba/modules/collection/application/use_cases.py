@@ -1,12 +1,14 @@
 from __future__ import annotations
 
 import logging
+from datetime import timedelta
 from typing import Collection
 
 from yimba.modules.collection.application.ports import (
     CollectionQueue,
     CollectorRegistry,
     ItemSink,
+    RawArchive,
     RunRepository,
     WatchCatalog,
 )
@@ -55,7 +57,7 @@ class PlanCollections:
 
 
 class CollectForWatch:
-    """Collect one source for one watch, hand the items to the sink, and keep a record of the run."""
+    """Collect one source for one watch, archive the raw payloads, hand the items to the sink, record the run."""
 
     def __init__(
         self,
@@ -63,6 +65,7 @@ class CollectForWatch:
         collectors: CollectorRegistry,
         sink: ItemSink,
         runs: RunRepository,
+        archive: RawArchive,
         clock: Clock,
         limit: int = 50,
     ) -> None:
@@ -70,6 +73,7 @@ class CollectForWatch:
         self._collectors = collectors
         self._sink = sink
         self._runs = runs
+        self._archive = archive
         self._clock = clock
         self._limit = limit
 
@@ -97,6 +101,7 @@ class CollectForWatch:
         )
         try:
             items = await collector.collect(target)
+            await self._archive.keep(run.id, items, self._clock.now())
             result = await self._sink.ingest(watch_id, items)
         except DomainError as exc:
             run.fail(at=self._clock.now(), error=exc.message)
@@ -108,3 +113,15 @@ class CollectForWatch:
             run.succeed(at=self._clock.now(), fetched=len(items), stored=result.stored)
         await self._runs.save(run)
         return run
+
+
+class PurgeRawItems:
+    """Raw payloads hold personal data in clear (names, handles): keep them only ``retention_days``."""
+
+    def __init__(self, archive: RawArchive, clock: Clock, retention_days: int = 30) -> None:
+        self._archive = archive
+        self._clock = clock
+        self._retention = timedelta(days=retention_days)
+
+    async def execute(self) -> int:
+        return await self._archive.purge(self._clock.now() - self._retention)

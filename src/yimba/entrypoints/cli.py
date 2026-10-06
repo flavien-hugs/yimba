@@ -41,6 +41,21 @@ def beat() -> None:
 
 
 @app.command()
+def flower(port: int = typer.Option(5555)) -> None:
+    """Run Flower, the web UI that shows the workers, the queue and every task."""
+    from yimba.entrypoints.worker.app import celery
+
+    settings = get_settings()
+    arguments = ["flower", f"--port={port}"]
+    if settings.FLOWER_BASIC_AUTH:
+        arguments.append(f"--basic-auth={settings.FLOWER_BASIC_AUTH}")
+    elif settings.is_production:
+        typer.echo("FLOWER_BASIC_AUTH must be set in production: Flower can revoke tasks.", err=True)
+        raise typer.Exit(code=1)
+    celery.start(arguments)
+
+
+@app.command()
 def collect(watch_id: str, source: SourceKind) -> None:
     """Collect one source for one watch right now, without going through the queue."""
     from sqlalchemy.pool import NullPool

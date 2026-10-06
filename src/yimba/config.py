@@ -36,6 +36,8 @@ class Settings(BaseSettings):
     BLUESKY_APP_PASSWORD: str | None = None
     BLUESKY_SERVICE: str = "https://bsky.social"
     COLLECTION_LIMIT: int = 50
+    # Raw payloads hold personal data in clear: purged when not seen for this long.
+    RAW_RETENTION_DAYS: int = 30
 
     # Analysis
     ANALYSIS_ENGINE: str = "lexicon"  # "lexicon" (baseline) or "transformers" (needs the 'ml' extra)
@@ -45,6 +47,9 @@ class Settings(BaseSettings):
     # Alerts
     ALERT_WINDOW_HOURS: int = 24
     ALERT_COOLDOWN_HOURS: int = 6
+
+    # Operations: Flower (Celery web UI) credentials, "user:password". Mandatory in production.
+    FLOWER_BASIC_AUTH: str | None = None
 
     @model_validator(mode="after")
     def _require_real_secrets_in_production(self) -> "Settings":

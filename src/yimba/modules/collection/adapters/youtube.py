@@ -51,6 +51,7 @@ def _video_item(video: Mapping[str, Any], statistics: Mapping[str, Any]) -> Coll
         likes=as_int(statistics.get("likeCount")),
         views=as_int(statistics.get("viewCount")),
         comments=as_int(statistics.get("commentCount")),
+        raw={"video": dict(video), "statistics": dict(statistics)},
     )
 
 
@@ -69,6 +70,7 @@ def _comment_item(video_id: str, thread: Mapping[str, Any]) -> CollectedItem:
         published_at=iso_datetime(snippet.get("publishedAt")),
         likes=as_int(snippet.get("likeCount")),
         comments=as_int((thread.get("snippet") or {}).get("totalReplyCount")),
+        raw=dict(thread),
     )
 
 

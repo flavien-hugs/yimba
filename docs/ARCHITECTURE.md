@@ -68,16 +68,26 @@ Un module ne dépend que des modules situés plus bas, et seulement via leur `pu
 ```
 beat (chaque minute) ──► yimba.plan ──► pour chaque (veille, source) dû ──► yimba.collect
                                                                                │
-   Collector.collect ─► ItemSink ─► IngestMentions ─► TextAnalyzer ─► MentionRepository
-   (YouTube, Bluesky,   (collection)  normalise, dédoublonne, anonymise    │
-    RSS)                                                                     └─► EvaluateAlerts ─► Notifier
+   Collector.collect ─► RawArchive ─► ItemSink ─► IngestMentions ─► TextAnalyzer ─► MentionRepository
+   (YouTube, Bluesky,   (raw_items)   (collection)  normalise, dédoublonne, anonymise    │
+    RSS)                                                                                 └─► EvaluateAlerts ─► Notifier
+
+beat (chaque jour) ──► yimba.purge_raw ──► supprime les raw_items non revus depuis RAW_RETENTION_DAYS
 ```
 
 - Une collecte est enregistrée (`collection_runs`) avec son statut et son erreur éventuelle ; un échec d'une source
   n'arrête jamais le worker.
 - Une exécution « en cours » depuis plus de 30 minutes est considérée comme morte et peut être relancée.
 - Aucune requête HTTP utilisateur ne déclenche de collecte : l'API ne lit que la base.
-- Les auteurs sont stockés sous forme de hash salé (`AUTHOR_HASH_SALT`), jamais en clair.
+- Les auteurs sont stockés sous forme de hash salé (`AUTHOR_HASH_SALT`), jamais en clair, dans les mentions. Les
+  réponses brutes (`raw_items`) les contiennent en clair : c'est pourquoi elles sont purgées.
+
+## Exploitation
+
+- **Flower** (`yimba flower`, service `flower`) : workers, file d'attente, tâches. Lié à `127.0.0.1`, protégé par
+  `FLOWER_BASIC_AUTH`, refuse de démarrer sans en production.
+- **GlitchTip** (profil `observability`) : reçoit les exceptions et les logs ERROR de l'API et du worker par le SDK
+  Sentry (`SENTRY_DSN`), sans données personnelles (`send_default_pii=False`).
 
 ## Ajouter une source
 

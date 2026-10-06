@@ -11,6 +11,7 @@ from sqlalchemy.pool import NullPool
 
 from yimba.bootstrap import Container
 from yimba.config import get_settings
+from yimba.infrastructure.error_tracking import init_error_tracking
 from yimba.modules.collection.adapters.queue import TaskQueue
 from yimba.modules.collection.domain.model import RunStatus
 from yimba.shared.source import SourceKind
@@ -19,12 +20,19 @@ logger = logging.getLogger(__name__)
 T = TypeVar("T")
 
 settings = get_settings()
+init_error_tracking(settings.SENTRY_DSN, settings.APP_ENV, "worker")
 celery = Celery("yimba", broker=settings.REDIS_URL)
 celery.conf.update(
     task_acks_late=True,
     worker_prefetch_multiplier=1,
     task_default_queue="yimba",
-    beat_schedule={"plan-collections": {"task": "yimba.plan", "schedule": 60.0}},
+    # Task events feed Flower.
+    worker_send_task_events=True,
+    task_send_sent_event=True,
+    beat_schedule={
+        "plan-collections": {"task": "yimba.plan", "schedule": 60.0},
+        "purge-raw-items": {"task": "yimba.purge_raw", "schedule": 24 * 3600.0},
+    },
 )
 
 
@@ -69,3 +77,14 @@ def collect(self, watch_id: str, source: str) -> str | None:
         return run.status.value
 
     return _run(work)
+
+
+@celery.task(name="yimba.purge_raw")
+def purge_raw_items() -> int:
+    async def work(container: Container) -> int:
+        async with container.session_factory() as session:
+            return await container.purge_raw_items(session).execute()
+
+    purged = _run(work)
+    logger.info("Purged %s raw item(s)", purged)
+    return purged

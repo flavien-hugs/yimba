@@ -2,7 +2,7 @@ from datetime import timedelta
 
 from tests.conftest import NOW, FixedClock
 from yimba.modules.collection.application.ports import CollectionWatch, SinkResult
-from yimba.modules.collection.application.use_cases import CollectForWatch, PlanCollections
+from yimba.modules.collection.application.use_cases import CollectForWatch, PlanCollections, PurgeRawItems
 from yimba.modules.collection.domain.model import CollectedItem, CollectionRun, RunStatus, is_due
 from yimba.shared.errors import ExternalServiceError
 from yimba.shared.source import SourceKind
@@ -62,6 +62,19 @@ class Sink:
         return SinkResult(stored=len(items), duplicates=0, skipped=0)
 
 
+class Archive:
+    def __init__(self):
+        self.kept, self.purged_before = [], None
+
+    async def keep(self, run_id, items, seen_at):
+        self.kept.append((run_id, list(items), seen_at))
+        return len(items)
+
+    async def purge(self, not_seen_since):
+        self.purged_before = not_seen_since
+        return 7
+
+
 class FakeCollector:
     def __init__(self, source, items=(), error=None):
         self.source, self.items, self.error, self.targets = source, list(items), error, []
@@ -104,13 +117,16 @@ async def test_planner_skips_sources_without_a_collector():
 
 async def test_collect_stores_items_and_records_a_successful_run():
     item = CollectedItem(source=SourceKind.NEWS, external_id="1", text="Vaccin gratuit")
-    collector, sink, runs = FakeCollector(SourceKind.NEWS, [item]), Sink(), Runs()
-    use_case = CollectForWatch(Catalog(watch()), {SourceKind.NEWS: collector}, sink, runs, FixedClock(), limit=10)
+    collector, sink, runs, archive = FakeCollector(SourceKind.NEWS, [item]), Sink(), Runs(), Archive()
+    use_case = CollectForWatch(
+        Catalog(watch()), {SourceKind.NEWS: collector}, sink, runs, archive, FixedClock(), limit=10
+    )
 
     run = await use_case.execute("w1", SourceKind.NEWS)
 
     assert (run.status, run.fetched, run.stored) == (RunStatus.SUCCEEDED, 1, 1)
     assert sink.calls == [("w1", [item])]
+    assert archive.kept == [(run.id, [item], NOW)]  # raw payloads are archived before ingestion
     assert collector.targets[0].keywords == ("vaccin",) and collector.targets[0].limit == 10
     assert runs.saved[run.id].finished_at == NOW
 
@@ -119,7 +135,12 @@ async def test_collect_failure_is_recorded_not_raised():
     for error in (ExternalServiceError("quota exceeded"), RuntimeError("boom")):
         runs = Runs()
         use_case = CollectForWatch(
-            Catalog(watch()), {SourceKind.NEWS: FakeCollector(SourceKind.NEWS, error=error)}, Sink(), runs, FixedClock()
+            Catalog(watch()),
+            {SourceKind.NEWS: FakeCollector(SourceKind.NEWS, error=error)},
+            Sink(),
+            runs,
+            Archive(),
+            FixedClock(),
         )
         run = await use_case.execute("w1", SourceKind.NEWS)
         assert run.status is RunStatus.FAILED and run.error
@@ -131,9 +152,16 @@ async def test_collect_ignores_unknown_inactive_or_unconfigured_targets():
         {SourceKind.NEWS: FakeCollector(SourceKind.NEWS)},
         Sink(),
         Runs(),
+        Archive(),
         FixedClock(),
     )
     assert await use_case.execute("missing", SourceKind.NEWS) is None
     assert await use_case.execute("off", SourceKind.NEWS) is None
     assert await use_case.execute("w1", SourceKind.YOUTUBE) is None  # not enabled for the watch
     assert await use_case.execute("w1", SourceKind.BLUESKY) is None  # enabled but no collector configured
+
+
+async def test_purge_drops_raw_items_not_seen_during_the_retention_period():
+    archive = Archive()
+    assert await PurgeRawItems(archive, FixedClock(), retention_days=30).execute() == 7
+    assert archive.purged_before == NOW - timedelta(days=30)

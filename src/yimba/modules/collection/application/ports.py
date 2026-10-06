@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from datetime import datetime
 from typing import Mapping, Protocol, Sequence
 
 from yimba.modules.collection.domain.model import CollectedItem, CollectionRun, CollectionTarget
@@ -43,6 +44,14 @@ class WatchCatalog(Protocol):
 
 class ItemSink(Protocol):
     async def ingest(self, watch_id: str, items: Sequence[CollectedItem]) -> SinkResult: ...
+
+
+class RawArchive(Protocol):
+    """Keeps the providers' payloads (one row per source item, refreshed each time it is seen)."""
+
+    async def keep(self, run_id: str, items: Sequence[CollectedItem], seen_at: datetime) -> int: ...
+
+    async def purge(self, not_seen_since: datetime) -> int: ...
 
 
 class RunRepository(Protocol):

@@ -60,6 +60,7 @@ def _post_item(post: Mapping[str, Any]) -> CollectedItem:
         likes=as_int(post.get("likeCount")),
         shares=as_int(post.get("repostCount")) + as_int(post.get("quoteCount")),
         comments=as_int(post.get("replyCount")),
+        raw=dict(post),
     )
 
 
