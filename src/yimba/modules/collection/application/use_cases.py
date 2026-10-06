@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+from typing import Collection
 
 from yimba.modules.collection.application.ports import (
     CollectionQueue,
@@ -19,19 +20,33 @@ logger = logging.getLogger(__name__)
 
 
 class PlanCollections:
-    """Called every minute by the scheduler: enqueue a collection for each (watch, source) that is due."""
+    """Called every minute by the scheduler: enqueue a collection for each (watch, source) that is due.
 
-    def __init__(self, catalog: WatchCatalog, runs: RunRepository, queue: CollectionQueue, clock: Clock) -> None:
+    ``sources`` are the sources that have a collector; the others are skipped, otherwise they would never
+    record a run and be enqueued again every minute.
+    """
+
+    def __init__(
+        self,
+        catalog: WatchCatalog,
+        runs: RunRepository,
+        queue: CollectionQueue,
+        clock: Clock,
+        sources: Collection[SourceKind] | None = None,
+    ) -> None:
         self._catalog = catalog
         self._runs = runs
         self._queue = queue
         self._clock = clock
+        self._sources = None if sources is None else frozenset(sources)
 
     async def execute(self) -> int:
         now = self._clock.now()
         enqueued = 0
         for watch in await self._catalog.list_active():
             for source in watch.sources:
+                if self._sources is not None and source not in self._sources:
+                    continue
                 last_run = await self._runs.last_run(watch.id, source)
                 if is_due(last_run, watch.frequency_minutes, now):
                     await self._queue.enqueue_collection(watch.id, source)

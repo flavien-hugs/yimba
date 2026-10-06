@@ -18,8 +18,8 @@ def api(host: str = typer.Option(None), port: int = typer.Option(None), reload: 
     uvicorn.run(
         "yimba.entrypoints.api.app:create_app",
         factory=True,
-        host=host or settings.api_host,
-        port=port or settings.api_port,
+        host=host or settings.API_HOST,
+        port=port or settings.API_PORT,
         reload=reload,
     )
 

@@ -61,7 +61,7 @@ def clock() -> FixedClock:
 
 @pytest.fixture
 async def container(clock):
-    settings = Settings(database_url=POSTGRES_URL or "sqlite+aiosqlite://", author_hash_salt="test-salt")
+    settings = Settings(DATABASE_URL=POSTGRES_URL or "sqlite+aiosqlite://", AUTHOR_HASH_SALT="test-salt")
     engine_kwargs = (
         {"poolclass": NullPool}
         if POSTGRES_URL

@@ -11,7 +11,7 @@ def make(**overrides):
         owner_id="u1",
         name="  Santé   et vaccination ",
         keywords=["vaccin", " vaccin ", "santé  publique", ""],
-        sources=[SourceKind.FACEBOOK, SourceKind.NEWS, SourceKind.FACEBOOK],
+        sources=[SourceKind.YOUTUBE, SourceKind.NEWS, SourceKind.YOUTUBE],
         now=NOW,
     )
     values.update(overrides)
@@ -23,7 +23,7 @@ def test_create_normalizes_input():
     assert watch.name == "Santé et vaccination"
     assert watch.slug == "sante-et-vaccination"
     assert watch.keywords == ("vaccin", "santé publique")
-    assert watch.sources == (SourceKind.FACEBOOK, SourceKind.NEWS)
+    assert watch.sources == (SourceKind.YOUTUBE, SourceKind.NEWS)
     assert watch.languages == ("fr",) and watch.countries == ("CI",)
 
 

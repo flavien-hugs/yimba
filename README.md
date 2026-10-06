@@ -1,7 +1,7 @@
 # yimba-api
 
-Yimba est une plateforme de **veille d'opinion et d'émotions en ligne** : elle collecte des publications (réseaux sociaux,
-presse), les analyse (langue, sentiment, émotion) et alerte quand l'opinion se dégrade, pour éclairer la décision.
+Yimba est une plateforme de **veille d'opinion et d'émotions en ligne** : elle collecte des publications par des API
+officielles (YouTube, Bluesky, presse via RSS), les analyse (langue, sentiment, émotion) et alerte quand l'opinion se dégrade, pour éclairer la décision.
 
 L'architecture est décrite dans [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 
@@ -52,7 +52,7 @@ TEST_DATABASE_URL=postgresql+asyncpg://user:pass@localhost/yimba_test make tests
 ## Ce qui reste à faire avant la production
 
 - Valider le contrat avec le service d'authentification (`AuthServiceAccessControl`, voir sa docstring).
-- Valider les `mappers` Apify sur des réponses réelles des acteurs configurés.
+- Valider les collecteurs YouTube et Bluesky avec de vraies clés (testés sur les formats documentés des API).
 - Remplacer l'analyse par lexique par un modèle multilingue évalué sur un corpus français et nouchi annoté.
 - Rapports PDF et nuage de mots (anciens gabarits conservés dans `legacy/`).
 - Conformité données personnelles (ARTCI) : durée de conservation, droit d'effacement.

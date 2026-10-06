@@ -19,7 +19,7 @@ logger = logging.getLogger(__name__)
 T = TypeVar("T")
 
 settings = get_settings()
-celery = Celery("yimba", broker=settings.redis_url)
+celery = Celery("yimba", broker=settings.REDIS_URL)
 celery.conf.update(
     task_acks_late=True,
     worker_prefetch_multiplier=1,

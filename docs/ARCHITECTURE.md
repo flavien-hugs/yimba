@@ -37,7 +37,7 @@ src/yimba/
 ### Dans un module
 
 ```
-adapters/     implémentent les ports (SQL, HTTP, Apify, RSS...)   ──┐
+adapters/     implémentent les ports (SQL, HTTP, YouTube, RSS...) ──┐
 application/  cas d'usage + ports (interfaces)                      ├─ les dépendances vont vers le bas
 domain/       entités, objets-valeur, règles métier                 ┘
 public.py     la seule surface importable par les autres modules
@@ -69,8 +69,8 @@ Un module ne dépend que des modules situés plus bas, et seulement via leur `pu
 beat (chaque minute) ──► yimba.plan ──► pour chaque (veille, source) dû ──► yimba.collect
                                                                                │
    Collector.collect ─► ItemSink ─► IngestMentions ─► TextAnalyzer ─► MentionRepository
-   (Apify, RSS)         (collection)  normalise, dédoublonne, anonymise    │
-                                                                             └─► EvaluateAlerts ─► Notifier
+   (YouTube, Bluesky,   (collection)  normalise, dédoublonne, anonymise    │
+    RSS)                                                                     └─► EvaluateAlerts ─► Notifier
 ```
 
 - Une collecte est enregistrée (`collection_runs`) avec son statut et son erreur éventuelle ; un échec d'une source
@@ -81,7 +81,9 @@ beat (chaque minute) ──► yimba.plan ──► pour chaque (veille, source)
 
 ## Ajouter une source
 
-1. Écrire un `Collector` (ou une recette `input` + `mapper` pour un acteur Apify, dans `apify_mappers.py`).
+1. Écrire un `Collector` qui appelle l'API **officielle** de la source (pas de scraping, pas de revendeur de données
+   comme Apify ou Mention).
+   Un mot-clé en échec ne doit pas faire perdre les autres : voir `collect_partially`.
 2. L'enregistrer dans `modules/collection/adapters/factory.py`.
 3. Ajouter la valeur à `SourceKind` (`shared/source.py`).
 

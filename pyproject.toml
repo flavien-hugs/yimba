@@ -15,7 +15,6 @@ asyncpg = "^0.29"
 alembic = "^1.13"
 httpx = "^0.27"
 celery = {version = "^5.4", extras = ["redis"]}
-apify-client = "^1.7"
 defusedxml = "^0.7"
 typer = ">=0.12"
 sentry-sdk = {extras = ["fastapi"], version = "^2.13.0"}
@@ -90,7 +89,7 @@ source_modules = [
     "yimba.modules.identity.domain",
     "yimba.shared",
 ]
-forbidden_modules = ["sqlalchemy", "fastapi", "httpx", "celery", "pydantic", "apify_client"]
+forbidden_modules = ["sqlalchemy", "fastapi", "httpx", "celery", "pydantic"]
 
 [[tool.importlinter.contracts]]
 name = "Application code does not know the framework or the database"
@@ -103,7 +102,7 @@ source_modules = [
     "yimba.modules.alerts.application",
     "yimba.modules.identity.application",
 ]
-forbidden_modules = ["sqlalchemy", "fastapi", "httpx", "celery", "apify_client"]
+forbidden_modules = ["sqlalchemy", "fastapi", "httpx", "celery"]
 
 [[tool.importlinter.contracts]]
 name = "Modules never import the entrypoints or the composition root"

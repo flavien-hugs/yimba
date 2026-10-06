@@ -12,7 +12,7 @@ from yimba.shared.pagination import PageParams
 from yimba.shared.source import SourceKind
 
 
-def item(external_id, text, source=SourceKind.FACEBOOK, **kw):
+def item(external_id, text, source=SourceKind.YOUTUBE, **kw):
     return IncomingMention(source=source, external_id=external_id, text=text, **kw)
 
 
@@ -104,7 +104,7 @@ async def test_stats_totals_buckets_and_emotions(ingest, session):
     assert by_day.emotions.get("anger") == 2
 
     by_source = await stats.execute(MentionFilters("w1"), GroupBy.SOURCE)
-    assert {b.key: b.counts.total for b in by_source.buckets} == {"facebook": 3, "news": 1}
+    assert {b.key: b.counts.total for b in by_source.buckets} == {"youtube": 3, "news": 1}
 
     empty = await stats.execute(MentionFilters("nobody"), GroupBy.DAY)
     assert empty.totals.total == 0 and empty.totals.negative_share == 0.0 and empty.buckets == ()

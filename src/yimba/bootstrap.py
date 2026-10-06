@@ -19,7 +19,6 @@ from yimba.modules.alerts.public import (
 from yimba.modules.analysis.public import TextAnalyzer, build_text_analyzer
 from yimba.modules.collection.application.ports import CollectorRegistry
 from yimba.modules.collection.public import (
-    ApifyActorRunner,
     CollectForWatch,
     DirectoryWatchCatalog,
     MentionsItemSink,
@@ -32,7 +31,6 @@ from yimba.modules.identity.public import AccessControl, AuthServiceAccessContro
 from yimba.modules.mentions.public import build_mention_ingestor, build_sentiment_window_reader
 from yimba.modules.watches.public import build_watch_directory
 from yimba.shared.clock import Clock, SystemClock
-from yimba.shared.source import SourceKind
 
 
 class Container:
@@ -56,9 +54,9 @@ class Container:
         self.settings = settings
         self.clock: Clock = clock or SystemClock()
         self.http = http_client or httpx.AsyncClient(timeout=15.0)
-        self.engine = engine or make_engine(settings.database_url, **(engine_kwargs or {}))
+        self.engine = engine or make_engine(settings.DATABASE_URL, **(engine_kwargs or {}))
         self.session_factory: async_sessionmaker[AsyncSession] = make_session_factory(self.engine)
-        self.analyzer = analyzer or build_text_analyzer(settings.analysis_engine, settings.analysis_model)
+        self.analyzer = analyzer or build_text_analyzer(settings.ANALYSIS_ENGINE, settings.ANALYSIS_MODEL)
         self.access_control = access_control or AuthServiceAccessControl(
             self.http, settings.userinfo_url, settings.access_check_url
         )
@@ -66,20 +64,14 @@ class Container:
 
     def _build_collectors(self) -> CollectorRegistry:
         s = self.settings
-        actors = {
-            SourceKind.FACEBOOK: s.apify_facebook_actor,
-            SourceKind.TIKTOK: s.apify_tiktok_actor,
-            SourceKind.TWITTER: s.apify_twitter_actor,
-            SourceKind.INSTAGRAM: s.apify_instagram_actor,
-            SourceKind.YOUTUBE: s.apify_youtube_actor,
-            SourceKind.GOOGLE: s.apify_google_actor,
-        }
-        runner = ApifyActorRunner(s.apify_token) if s.apify_token else None
         return build_collectors(
-            runner=runner,
-            actors={source: actor for source, actor in actors.items() if actor},
             http_client=self.http,
             extra_news_feeds=s.extra_news_feeds,
+            youtube_api_key=s.YOUTUBE_API_KEY,
+            youtube_comment_videos=s.YOUTUBE_COMMENT_VIDEOS,
+            bluesky_handle=s.BLUESKY_HANDLE,
+            bluesky_app_password=s.BLUESKY_APP_PASSWORD,
+            bluesky_service=s.BLUESKY_SERVICE,
         )
 
     # ---- use cases bound to a session --------------------------------------------------------------------------
@@ -89,11 +81,11 @@ class Container:
             catalog=DirectoryWatchCatalog(build_watch_directory(session)),
             collectors=self.collectors,
             sink=MentionsItemSink(
-                build_mention_ingestor(session, self.analyzer, self.clock, self.settings.author_hash_salt)
+                build_mention_ingestor(session, self.analyzer, self.clock, self.settings.AUTHOR_HASH_SALT)
             ),
             runs=SqlRunRepository(session),
             clock=self.clock,
-            limit=self.settings.collection_limit,
+            limit=self.settings.COLLECTION_LIMIT,
         )
 
     def plan_collections(self, session: AsyncSession, send_task: Callable[..., object]) -> PlanCollections:
@@ -102,6 +94,7 @@ class Container:
             runs=SqlRunRepository(session),
             queue=TaskQueue(send_task),
             clock=self.clock,
+            sources=self.collectors.keys(),
         )
 
     def evaluate_alerts(self, session: AsyncSession) -> EvaluateAlerts:
@@ -111,8 +104,8 @@ class Container:
             alerts=SqlAlertRepository(session),
             notifier=LogNotifier(),
             clock=self.clock,
-            window_hours=self.settings.alert_window_hours,
-            cooldown_hours=self.settings.alert_cooldown_hours,
+            window_hours=self.settings.ALERT_WINDOW_HOURS,
+            cooldown_hours=self.settings.ALERT_COOLDOWN_HOURS,
         )
 
     async def aclose(self) -> None:

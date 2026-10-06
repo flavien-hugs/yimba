@@ -12,7 +12,7 @@ def watch(**kw):
     values = dict(
         id="w1",
         keywords=("vaccin",),
-        sources=(SourceKind.NEWS, SourceKind.FACEBOOK),
+        sources=(SourceKind.NEWS, SourceKind.BLUESKY),
         languages=("fr",),
         countries=("CI",),
         frequency_minutes=60,
@@ -91,7 +91,15 @@ async def test_planner_enqueues_only_due_pairs_of_active_watches():
     await runs.save(run_at(NOW - timedelta(minutes=10)))  # news of w1 collected recently
     planner = PlanCollections(Catalog(watch(), watch(id="w2", active=False)), runs, queue, FixedClock())
     assert await planner.execute() == 1
-    assert queue.jobs == [("w1", SourceKind.FACEBOOK)]
+    assert queue.jobs == [("w1", SourceKind.BLUESKY)]
+
+
+async def test_planner_skips_sources_without_a_collector():
+    queue = Queue()
+    planner = PlanCollections(Catalog(watch()), Runs(), queue, FixedClock(), sources={SourceKind.NEWS})
+    assert await planner.execute() == 1
+    assert queue.jobs == [("w1", SourceKind.NEWS)]
+    assert await planner.execute() == 1  # no run is ever recorded for bluesky: it must still not be enqueued
 
 
 async def test_collect_stores_items_and_records_a_successful_run():
@@ -128,4 +136,4 @@ async def test_collect_ignores_unknown_inactive_or_unconfigured_targets():
     assert await use_case.execute("missing", SourceKind.NEWS) is None
     assert await use_case.execute("off", SourceKind.NEWS) is None
     assert await use_case.execute("w1", SourceKind.YOUTUBE) is None  # not enabled for the watch
-    assert await use_case.execute("w1", SourceKind.FACEBOOK) is None  # enabled but no collector configured
+    assert await use_case.execute("w1", SourceKind.BLUESKY) is None  # enabled but no collector configured
