@@ -74,6 +74,12 @@ class Container:
             bluesky_handle=s.BLUESKY_HANDLE,
             bluesky_app_password=s.BLUESKY_APP_PASSWORD,
             bluesky_service=s.BLUESKY_SERVICE,
+            meta_access_token=s.META_ACCESS_TOKEN,
+            meta_app_secret=s.META_APP_SECRET,
+            meta_graph_version=s.META_GRAPH_VERSION,
+            facebook_page_ids=s.facebook_pages,
+            facebook_comment_posts=s.FACEBOOK_COMMENT_POSTS,
+            instagram_account_id=s.INSTAGRAM_ACCOUNT_ID,
         )
 
     # ---- use cases bound to a session --------------------------------------------------------------------------

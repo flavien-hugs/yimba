@@ -70,7 +70,7 @@ beat (chaque minute) ──► yimba.plan ──► pour chaque (veille, source)
                                                                                │
    Collector.collect ─► RawArchive ─► ItemSink ─► IngestMentions ─► TextAnalyzer ─► MentionRepository
    (YouTube, Bluesky,   (raw_items)   (collection)  normalise, dédoublonne, anonymise    │
-    RSS)                                                                                 └─► EvaluateAlerts ─► Notifier
+    Meta, RSS)                                                                           └─► EvaluateAlerts ─► Notifier
 
 beat (chaque jour) ──► yimba.purge_raw ──► supprime les raw_items non revus depuis RAW_RETENTION_DAYS
 ```

@@ -77,6 +77,12 @@ def test_factory_only_registers_configured_sources():
         http_client=client, youtube_api_key="k", bluesky_handle="me.bsky.social", bluesky_app_password="p"
     )
     assert set(registry) == {SourceKind.NEWS, SourceKind.YOUTUBE, SourceKind.BLUESKY}
+    # Meta: the token alone enables nothing, each source needs its target (Pages, Instagram account).
+    assert set(build_collectors(http_client=client, meta_access_token="t")) == {SourceKind.NEWS}
+    registry = build_collectors(
+        http_client=client, meta_access_token="t", facebook_page_ids=("100",), instagram_account_id="ig"
+    )
+    assert set(registry) == {SourceKind.NEWS, SourceKind.FACEBOOK, SourceKind.INSTAGRAM}
 
 
 async def test_collect_partially_keeps_what_succeeded_and_fails_only_if_everything_failed():

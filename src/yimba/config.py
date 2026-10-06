@@ -35,6 +35,13 @@ class Settings(BaseSettings):
     BLUESKY_HANDLE: str | None = None
     BLUESKY_APP_PASSWORD: str | None = None
     BLUESKY_SERVICE: str = "https://bsky.social"
+    # Meta (Facebook Pages, Instagram hashtags): one Meta app, one long-lived token.
+    META_ACCESS_TOKEN: str | None = None
+    META_APP_SECRET: str | None = None
+    META_GRAPH_VERSION: str = "v25.0"
+    FACEBOOK_PAGE_IDS: str = ""
+    FACEBOOK_COMMENT_POSTS: int = 5
+    INSTAGRAM_ACCOUNT_ID: str | None = None
     COLLECTION_LIMIT: int = 50
     # Raw payloads hold personal data in clear: purged when not seen for this long.
     RAW_RETENTION_DAYS: int = 30
@@ -76,6 +83,10 @@ class Settings(BaseSettings):
     @property
     def extra_news_feeds(self) -> tuple[str, ...]:
         return tuple(feed.strip() for feed in self.NEWS_EXTRA_FEEDS.split(",") if feed.strip())
+
+    @property
+    def facebook_pages(self) -> tuple[str, ...]:
+        return tuple(page.strip() for page in self.FACEBOOK_PAGE_IDS.split(",") if page.strip())
 
 
 @lru_cache

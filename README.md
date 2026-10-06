@@ -14,6 +14,8 @@ Uniquement des API officielles : ni scraping, ni revendeur de données. Une sour
 | `news` | Google News RSS + flux RSS ajoutés | aucun (`NEWS_EXTRA_FEEDS`) | articles | — |
 | `youtube` | YouTube Data API v3 | `YOUTUBE_API_KEY` | vidéos et commentaires des premières vidéos | 10 000 unités/jour, ~106 par mot-clé : fréquence 6 h ou 24 h |
 | `bluesky` | AT Protocol | `BLUESKY_HANDLE`, `BLUESKY_APP_PASSWORD` | publications | — |
+| `facebook` | Graph API (Pages) | `META_ACCESS_TOKEN`, `FACEBOOK_PAGE_IDS` | publications des Pages suivies qui citent un mot-clé, et leurs commentaires | pas de recherche sur tout Facebook ; Pages non gérées : fonctionnalité « Page Public Content Access » |
+| `instagram` | Graph API (hashtags) | `META_ACCESS_TOKEN`, `INSTAGRAM_ACCOUNT_ID` | publications des dernières 24 h par hashtag | compte professionnel, 30 hashtags distincts par 7 jours, ni commentaires ni auteur |
 
 Les réponses brutes des API sont gardées dans `raw_items` (une ligne par publication, mise à jour à chaque passage) pour
 pouvoir corriger une conversion après coup ; elles contiennent des données personnelles en clair et sont supprimées après
@@ -75,7 +77,8 @@ TEST_DATABASE_URL=postgresql+asyncpg://user:pass@localhost/yimba_test make tests
 ## Ce qui reste à faire avant la production
 
 - Valider le contrat avec le service d'authentification (`AuthServiceAccessControl`, voir sa docstring).
-- Valider les collecteurs YouTube et Bluesky avec de vrais identifiants (testés sur les formats documentés des API).
+- Valider les collecteurs YouTube, Bluesky, Facebook et Instagram avec de vrais identifiants (testés sur les formats
+  documentés des API) ; créer l'application Meta, faire la vérification d'entreprise et l'App Review.
 - Remplacer l'analyse par lexique par un modèle multilingue évalué sur un corpus français et nouchi annoté.
 - Rapports PDF et nuage de mots (anciens gabarits conservés dans `legacy/`).
 - Conformité données personnelles (ARTCI) : durée de conservation des mentions, droit d'effacement (les données brutes
