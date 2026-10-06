@@ -1,59 +1,112 @@
 [tool.poetry]
 name = "yimba-api"
-version = "0.1.0"
-description = ""
+version = "0.2.0"
+description = "Yimba: veille d'opinion et d'émotions en ligne pour l'aide à la décision"
 authors = ["haf <flavienhugs@incubtek.com>"]
-packages = [{include = "src"}]
+packages = [{include = "yimba", from = "src"}]
 
 [tool.poetry.dependencies]
 python = "^3.12"
-facebook-scraper = "^0.2.59"
-apify-client = "^1.6.1"
-python-slugify = "^8.0.1"
-vadersentiment = "^3.3.2"
-newsapi-python = "^0.2.7"
-google-search-results = "^2.4.2"
-wordcloud = "^1.9.3"
-matplotlib = "^3.8.3"
+fastapi = {version = ">=0.115", extras = ["standard"]}
+pydantic = "^2.8"
+pydantic-settings = "^2.4"
+sqlalchemy = {version = "^2.0.30", extras = ["asyncio"]}
+asyncpg = "^0.29"
+alembic = "^1.13"
+httpx = "^0.27"
+celery = {version = "^5.4", extras = ["redis"]}
+apify-client = "^1.7"
+defusedxml = "^0.7"
+typer = ">=0.12"
 sentry-sdk = {extras = ["fastapi"], version = "^2.13.0"}
-pydantic-settings = "^2.4.0"
-fastapi-pagination = "^0.12.26"
-beanie = "^1.26.0"
-fastapi = {version = "^0.111.0", extras = ["standard"]}
+transformers = {version = "^4.44", optional = true}
+torch = {version = "^2.4", optional = true}
 
+[tool.poetry.extras]
+ml = ["transformers", "torch"]
 
 [tool.poetry.group.dev.dependencies]
+pytest = "^8.3"
+pytest-asyncio = "^0.24"
+aiosqlite = "^0.20"
+import-linter = "^2.0"
 pre-commit = "^3.6.0"
 isort = "^5.13.2"
-black = "^23.12.1"
-flake8 = "^6.1.0"
-ipython = "^8.21.0"
-
-[tool.black]
-line-length = 120
-include = '\.pyi?$'
-exclude = '''
-(
-  /(
-      \.eggs
-    | \.git
-    | \.hg
-    | \.mypy_cache
-    | \.tox
-    | \.venv
-    | \.docker
-    | \*.egg-info
-    | _build
-    | buck-out
-    | build
-    | dist
-  )/
-)
-'''
+black = "^24.3"
+flake8 = "^7.0"
 
 [tool.poetry.scripts]
-yimba = "src.cli:app"
+yimba = "yimba.entrypoints.cli:app"
 
 [build-system]
 requires = ["poetry-core"]
 build-backend = "poetry.core.masonry.api"
+
+[tool.black]
+line-length = 120
+include = '\.pyi?$'
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
+pythonpath = ["src"]
+
+# Architecture rules, checked with `lint-imports` (make lint-arch).
+[tool.importlinter]
+root_package = "yimba"
+include_external_packages = true
+
+[[tool.importlinter.contracts]]
+name = "Inside each module: adapters -> application -> domain, never the other way"
+type = "layers"
+layers = ["adapters", "application", "domain"]
+containers = [
+    "yimba.modules.analysis",
+    "yimba.modules.watches",
+    "yimba.modules.mentions",
+    "yimba.modules.collection",
+    "yimba.modules.alerts",
+    "yimba.modules.identity",
+]
+
+[[tool.importlinter.contracts]]
+name = "Modules depend downwards only (siblings are independent)"
+type = "layers"
+layers = [
+    "yimba.modules.alerts | yimba.modules.collection",
+    "yimba.modules.mentions | yimba.modules.watches",
+    "yimba.modules.analysis | yimba.modules.identity",
+]
+
+[[tool.importlinter.contracts]]
+name = "Domain code is pure: no framework, database or HTTP client"
+type = "forbidden"
+source_modules = [
+    "yimba.modules.analysis.domain",
+    "yimba.modules.watches.domain",
+    "yimba.modules.mentions.domain",
+    "yimba.modules.collection.domain",
+    "yimba.modules.alerts.domain",
+    "yimba.modules.identity.domain",
+    "yimba.shared",
+]
+forbidden_modules = ["sqlalchemy", "fastapi", "httpx", "celery", "pydantic", "apify_client"]
+
+[[tool.importlinter.contracts]]
+name = "Application code does not know the framework or the database"
+type = "forbidden"
+source_modules = [
+    "yimba.modules.analysis.application",
+    "yimba.modules.watches.application",
+    "yimba.modules.mentions.application",
+    "yimba.modules.collection.application",
+    "yimba.modules.alerts.application",
+    "yimba.modules.identity.application",
+]
+forbidden_modules = ["sqlalchemy", "fastapi", "httpx", "celery", "apify_client"]
+
+[[tool.importlinter.contracts]]
+name = "Modules never import the entrypoints or the composition root"
+type = "forbidden"
+source_modules = ["yimba.modules", "yimba.shared", "yimba.infrastructure"]
+forbidden_modules = ["yimba.entrypoints", "yimba.bootstrap"]

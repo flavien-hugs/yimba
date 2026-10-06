@@ -1,0 +1,19 @@
+{
+  "_comment": "Baseline lexicon. It is a starting point, NOT a validated resource: entries tagged 'ci' (Ivorian French / nouchi) must be reviewed and extended by native speakers. The production path is the transformers adapter.",
+  "positive": ["bien", "bon", "bonne", "super", "merci", "bravo", "excellent", "excellente", "content", "contente", "heureux", "heureuse", "genial", "formidable", "felicitations", "satisfait", "rassure", "efficace", "confiance", "progres", "reussi", "reussite", "gratuit", "gratuite", "utile", "solidaire", "espoir", "fier", "fiere", "enjaille", "enjaillement", "good", "great", "thanks", "happy", "love", "excellent", "amazing"],
+  "negative": ["mauvais", "mauvaise", "nul", "nulle", "honte", "colere", "probleme", "problemes", "arnaque", "voleur", "corruption", "corrompu", "manque", "rupture", "penurie", "danger", "dangereux", "peur", "inquiet", "inquiete", "triste", "scandale", "catastrophe", "injuste", "injustice", "cher", "chere", "coupure", "greve", "mort", "morts", "violence", "degoutant", "marre", "pire", "echec", "abandonne", "abandonnes", "rumeur", "rumeurs", "brouteur", "bad", "hate", "angry", "fraud", "terrible", "awful"],
+  "emotions": {
+    "joy": ["content", "contente", "heureux", "heureuse", "joie", "bravo", "super", "genial", "fete", "enjaille", "enjaillement", "happy", "love"],
+    "anger": ["colere", "honte", "scandale", "marre", "injuste", "injustice", "arnaque", "voleur", "corruption", "degoutant", "angry", "hate"],
+    "fear": ["peur", "inquiet", "inquiete", "danger", "dangereux", "menace", "panique", "rumeur", "rumeurs", "effrayant"],
+    "sadness": ["triste", "tristesse", "deuil", "pleure", "mort", "morts", "perte", "abandonne", "abandonnes"],
+    "trust": ["confiance", "rassure", "solidaire", "securite", "efficace", "espoir", "fiable"]
+  },
+  "positive_emojis": ["😊", "😍", "👍", "🙏", "❤️", "😀", "👏", "🎉"],
+  "negative_emojis": ["😡", "😠", "👎", "😢", "😭", "😨", "😱", "🤬"],
+  "negations": ["not", "no", "never", "pas", "jamais", "aucun", "aucune", "sans", "ni", "non"],
+  "stopwords": {
+    "fr": ["le", "la", "les", "un", "une", "des", "et", "est", "pas", "pour", "que", "qui", "dans", "sur", "avec", "nous", "vous", "ils", "elle", "au", "du", "ce", "cette", "mais", "ou", "il", "je", "on", "en", "sont", "ont", "ne", "se", "ça", "ca", "y", "a"],
+    "en": ["the", "and", "is", "are", "was", "were", "for", "that", "this", "with", "you", "they", "have", "has", "not", "but", "of", "to", "in", "on", "it", "we", "he", "she"]
+  }
+}

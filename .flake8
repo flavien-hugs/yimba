@@ -1,9 +1,4 @@
 [flake8]
-max-line-length = 100
-exclude = .git, env, examples/*, __pycache__
-import-order-style = pycharm
-application-import-names = yimba_api/
-
-[isort]
-profile = black
-src_paths = yimba_api/services/
+max-line-length = 120
+extend-ignore = E203
+exclude = .git, env, .venv, __pycache__, migrations/versions

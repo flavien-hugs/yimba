@@ -1,65 +1,31 @@
-name: Docker Image CI for GHRC
+name: Publish image to GHCR
 
 on:
   push:
-    branches:
-      - "main"
-      - "preprod"
-      - "develop"
-  pull_request:
-    branches:
-      - "main"
-      - "develop"
-      - "preprod"
-
+    branches: ["main", "preprod", "develop"]
 
 jobs:
-    build-and-push:
-        runs-on: ubuntu-latest
-        environment:
-          name: ${{ (github.ref == 'refs/heads/main' && 'latest') || (github.ref == 'refs/heads/preprod' && 'preprod') || 'dev' }}
-        steps:
-            - name: Checkout code
-              uses: actions/checkout@v4
-              with:
-                  submodules: true
-                  token: ${{ secrets.GH_SUBMODULE_TOKEN }}
+  build-and-push:
+    runs-on: ubuntu-latest
+    environment:
+      name: ${{ (github.ref == 'refs/heads/main' && 'latest') || (github.ref == 'refs/heads/preprod' && 'preprod') || 'dev' }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
 
-            - name: Login to Docker registry
-              run: |
-                echo "Logging into Docker registry..."
-                echo "${{ secrets.GHRC_PASSWORD }}" | \
-                    docker login ghcr.io -u ${{ secrets.GHRC_USERNAME }} --password-stdin
-                echo "Logging into Docker registry success"
+      - name: Login to Docker registry
+        run: echo "${{ secrets.GHRC_PASSWORD }}" | docker login ghcr.io -u ${{ secrets.GHRC_USERNAME }} --password-stdin
 
-            - name: Determine image tag and build (improved logic)
-              id: docker-tag
-              run: |
-                if [[ "${{ github.event_name }}" == "push" ]]; then
-                  BRANCH_NAME="${{ github.ref_name }}"
-                elif [[ "${{ github.event_name }}" == "pull_request" ]]; then
-                  BRANCH_NAME="${{ github.base_ref }}"
-                else
-                  echo "Unsupported event: ${{ github.event_name }}"
-                  exit 1
-                fi
+      - name: Determine image tag
+        id: tag
+        run: |
+          case "${{ github.ref_name }}" in
+            main) echo "name=latest" >> "$GITHUB_OUTPUT" ;;
+            preprod) echo "name=preprod" >> "$GITHUB_OUTPUT" ;;
+            develop) echo "name=dev" >> "$GITHUB_OUTPUT" ;;
+          esac
 
-                echo "Branch name: $BRANCH_NAME"
-
-                if [[ "$BRANCH_NAME" == "main" || "$BRANCH_NAME" == "master" ]]; then
-                  DOCKER_TAG_NAME="latest"
-                elif [[ "$BRANCH_NAME" == "preprod" ]]; then
-                  DOCKER_TAG_NAME="preprod"
-                elif [[ "$BRANCH_NAME" == "develop" ]]; then
-                  DOCKER_TAG_NAME="dev"
-                else
-                  echo "No valid tag found for branch $BRANCH_NAME, exiting..."
-                  exit 1
-                fi
-
-                echo "docker_tag_name=$DOCKER_TAG_NAME" >> $GITHUB_OUTPUT
-
-                echo "Building Docker image with tag $DOCKER_TAG_NAME ..."
-                docker build --no-cache -t ${{ secrets.GHRC_REGISTRY_ADDR }}:$DOCKER_TAG_NAME .
-                docker push ${{ secrets.GHRC_REGISTRY_ADDR }}:$DOCKER_TAG_NAME
-                echo "Build and push Docker image ok ..."
+      - name: Build and push
+        run: |
+          docker build -t ${{ secrets.GHRC_REGISTRY_ADDR }}:${{ steps.tag.outputs.name }} .
+          docker push ${{ secrets.GHRC_REGISTRY_ADDR }}:${{ steps.tag.outputs.name }}

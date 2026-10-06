@@ -1,70 +1,36 @@
-FROM python:3.12.3-slim-bookworm as python-base
+FROM python:3.12-slim-bookworm AS base
 
 ENV PYTHONUNBUFFERED=1 \
+    PYTHONDONTWRITEBYTECODE=1 \
     PIP_DISABLE_PIP_VERSION_CHECK=on \
-    PIP_DEFAULT_TIMEOUT=100 \
-    POETRY_VERSION=1.8.2 \
-    POETRY_HOME="/opt/poetry" \
-    POETRY_NO_INTERACTION=1 \
-    POETRY_VIRTUALENVS_CREATE=false \
-    POETRY_CACHE_DIR=/tmp/poetry_cache \
-    VIRTUAL_ENV="/venv"
+    VIRTUAL_ENV=/venv \
+    PATH=/venv/bin:$PATH \
+    PYTHONPATH=/app/src
 
-# prepend poetry and venv to path
-ENV PATH="$POETRY_HOME/bin:$VIRTUAL_ENV/bin:$PATH"
+FROM base AS builder
 
-# prepare virtual env
-RUN python -m venv $VIRTUAL_ENV
+ARG POETRY_VERSION=2.1.3
+# Set to "ml" to bake the transformers sentiment model dependencies into the image.
+ARG EXTRAS=""
 
-# working directory and Python path
+RUN python -m venv $VIRTUAL_ENV && pip install "poetry==${POETRY_VERSION}"
 WORKDIR /app
-ENV PYTHONPATH="/app:$PYTHONPATH"
-
-FROM python-base as builder-base
-
-RUN apt-get update && \
-    apt-get install -y \
-    apt-transport-https \
-    gnupg \
-    ca-certificates \
-    build-essential \
-    curl
-
-# install poetry - respects $POETRY_VERSION & $POETRY_HOME
-# The --mount will mount the buildx cache directory to where
-# Poetry and Pip store their cache so that they can re-use it
+COPY pyproject.toml poetry.lock ./
 RUN --mount=type=cache,target=/root/.cache \
-    curl -sSL https://install.python-poetry.org | python -
+    POETRY_VIRTUALENVS_CREATE=false poetry install --no-root --only main ${EXTRAS:+--extras "$EXTRAS"}
 
-WORKDIR /app
-
-COPY . .
-
-# install runtime deps to VIRTUAL_ENV
-RUN --mount=type=cache,target=/root/.cache \
-    poetry install --no-root --without dev
-
-
-# The runtime image, used to just run the code provided its virtual environment
-FROM python-base as runtime
+FROM base AS runtime
 
 ARG UID=10001
-ARG GID=10001
+RUN adduser --uid $UID --disabled-password --gecos "" appuser
 
-COPY --from=builder-base ${POETRY_HOME} ${POETRY_HOME}
-COPY --from=builder-base ${VIRTUAL_ENV} ${VIRTUAL_ENV}
-COPY --from=builder-base /app/src /app/src
-COPY --from=builder-base /app/appdesc.yml /app/appdesc.yml
-COPY --from=builder-base /app/pyproject.toml /app/pyproject.toml
-COPY --from=builder-base /app/poetry.lock /app/poetry.lock
-
-RUN addgroup --gid $GID appuser && \
-    adduser --uid $UID --gid $GID --disabled-password --gecos "" appuser && \
-    chmod 755 -R /app && \
-    chown appuser:appuser -R /app
-
+COPY --from=builder /venv /venv
+WORKDIR /app
+COPY src ./src
+COPY migrations ./migrations
+COPY alembic.ini appdesc.yml ./
 USER appuser
 
-
-WORKDIR /app
-ENV PYTHONPATH="/app:$PYTHONPATH"
+EXPOSE 8800
+ENTRYPOINT ["python", "-m", "yimba.entrypoints.cli"]
+CMD ["api"]

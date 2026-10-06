@@ -203,3 +203,6 @@ k8s/secrets.yml
 *.lock
 notebook.ipynb
 dotenv/
+
+# local database
+*.db

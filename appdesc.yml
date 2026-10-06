@@ -1,125 +1,46 @@
 - app:
-    name: "yimba-apify"
+    name: "yimba-api"
     title:
-        fr: "Service de collecte de donnée APIFY"
-        en: "APIFY data collection services"
+        fr: "Service de veille d'opinion Yimba"
+        en: "Yimba opinion monitoring service"
     permissions:
         -
-            code: "project:can-create-project"
+            code: "watch:can-create"
             desc:
-                fr: "Peut créer un nouveau projet de collecte de donnée"
-                en: "Can create new project"
-
+                fr: "Peut créer une veille"
+                en: "Can create a watch"
         -
-            code: "project:can-read-project"
+            code: "watch:can-read"
             desc:
-                fr: "Peut lire les informations sur un projet"
-                en: "Can read information on a project"
-
+                fr: "Peut consulter ses veilles"
+                en: "Can read its watches"
         -
-            code: "project:can-update-project"
+            code: "watch:can-update"
             desc:
-                fr: "Peut mettre à jour les informations d'un projet"
-                en: "Can update information on a project"
-
+                fr: "Peut modifier une veille"
+                en: "Can update a watch"
         -
-            code: "project:can-delete-project"
+            code: "watch:can-delete"
             desc:
-                fr: "Peut supprimer un projet"
-                en: "Can delete a project"
-
+                fr: "Peut supprimer une veille"
+                en: "Can delete a watch"
         -
-            code: "analyse:can-display-analyse"
+            code: "mention:can-read"
             desc:
-                fr: "Peut afficher une analyse d'un/des mot(s) clé(s)"
-                en: "Can display an analysis of keyword(s)"
+                fr: "Peut consulter les mentions collectées d'une veille"
+                en: "Can read the mentions collected for a watch"
         -
-            code: "cloudtags:can-generete-cloudtags"
+            code: "mention:can-read-statistics"
             desc:
-                fr: "Peut générer un nuage de mots"
-                en: "Can generate word clouds"
+                fr: "Peut consulter les statistiques de sentiment et d'émotion d'une veille"
+                en: "Can read the sentiment and emotion statistics of a watch"
         -
-            code: "facebook:can-display-facebook-data"
+            code: "alert:can-read"
             desc:
-                fr: "Peut afficher ou faire des recherche sur Facebook par mot clés"
-                en: "Can display or search on Facebook by hashtag"
+                fr: "Peut consulter les alertes d'une veille"
+                en: "Can read the alerts of a watch"
         -
-            code: "facebook:can-extract-data-from-facebook-posts"
+            code: "alert:can-acknowledge"
             desc:
-                fr: "Peut extraire des données de centaines de posts Facebook en utilisant
-                un ou plusieurs mot clé (hashtag)"
-                en: "Can extract data from hundreds of Facebook posts using one or more hashtags"
-        -
-            code: "facebook:can-read-scrapper-facebook-data-statistics"
-            desc:
-                fr: "Obtenir des statistiques sur les données de Facebook scrapper"
-                en: "Get Facebook scrapper data statictics"
-        -
-            code: "facebook:can-generate-word-cloud-facebook-keywords"
-            desc:
-                fr: "Peut générer un nuage de mots des mots clés Facebook"
-                en: "Can generate a word cloud of Facebook keywords"
-        -
-            code: "google:can-extract-data-from-google-search-engine"
-            desc:
-                fr: "Peut extraire des données provenant des pages de résultats des moteurs de
-                recherche ColllectGoogleData (SERP)"
-                en: "Can extract data from Google search engine results pages (SERPs)"
-        -
-            code: "instagram:can-extract-data-from-instagram"
-            desc:
-                fr: "Peut extraire et téléchargez des posts, profils, lieux, hashtags, photos et commentaires
-                Instagram"
-                en: "Can extract and download Instagram posts, profiles, locations, hashtags, photos and comments"
-        -
-            code: "instagram:can-read-scrapper-instagram-data-statistics"
-            desc:
-                fr: "Obtenir des statistiques sur les données Instagramm scrapper"
-                en: "Get Instagram scrapper data statictics"
-        -
-            code: "report:can-generate-report"
-            desc:
-                fr: "Peut générer un rapport à partir d'un mot clé"
-                en: "Can generate a report from a keyword"
-
-        -
-            code: "tiktok:can-extract-data-from-tiktok-posts"
-            desc:
-                fr: "Peut extraire des données sur les vidéos, les utilisateurs et les chaînes en vous basant
-                    sur les hashtags ou récupérez les profils complets des utilisateurs, y compris les messages,
-                    le nombre total de likes, le nom, le surnom, le nombre de commentaires,
-                    de partages, de followers, de personnes suivies, etc"
-                en: "Can extract data on videos, users and channels based on hashtags or retrieve full user profiles,
-                    including posts, total number of likes, name, nickname, number of comments, shares, followers,
-                    people followed, etc."
-        -
-            code: "tiktok:can-read-scrapper-tiktok-data-statistics"
-            desc:
-                fr: "Obtenir des statistiques sur les données de Tiktok scrapper"
-                en: "Get Tiktok scrapper data statictics"
-        -
-            code: "twitter:can-read-scrapper-twitter-data-statistics"
-            desc:
-                fr: "Obtenir des statistiques sur les données de Twitter scrapper"
-                en: "Get Twitter scrapper data statictics"
-        -
-            code: "twitter:can-extract-data-from-twitter-posts"
-            desc:
-                fr: "Peut récupérer les tweets de n'importe quel profil d'utilisateur de Twitter"
-                en: "Can retrieve tweets from any Twitter user profile"
-        -
-            code: "youtube:can-display-youtube-data"
-            desc:
-                fr: "Peut afficher ou faire des recherche sur Youtube par mot clés"
-                en: "Can display or search on Youtube by hashtag"
-        -
-            code: "youtube:can-extract-data-from-youtube-posts"
-            desc:
-                fr: "Peut extraire des données de centaines de posts Youtube en utilisant
-                un ou plusieurs mot clé (hashtag)"
-                en: "Can extract data from hundreds of Youtube posts using one or more hashtags"
-        -
-            code: "youtube:can-read-scrapper-youtube-data-statistics"
-            desc:
-                fr: "Obtenir des statistiques sur les données de Youtube scrapper"
-                en: "Get Youtube scrapper data statictics"
+                fr: "Peut marquer une alerte comme traitée"
+                en: "Can acknowledge an alert"

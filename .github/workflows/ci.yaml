@@ -1,0 +1,59 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: ["main", "preprod", "develop"]
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_DB: yimba_test
+          POSTGRES_USER: yimba
+          POSTGRES_PASSWORD: yimba
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U yimba -d yimba_test"
+          --health-interval 5s --health-timeout 3s --health-retries 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install Poetry
+        run: pip install "poetry==2.1.3"
+
+      - name: Install dependencies
+        run: poetry install --only main,dev
+
+      - name: Format and lint
+        run: |
+          poetry run black --check src tests migrations
+          poetry run isort --check src tests migrations
+          poetry run flake8 src tests migrations/env.py
+
+      - name: Architecture rules
+        run: poetry run lint-imports
+
+      - name: Tests (SQLite)
+        run: poetry run pytest -q
+
+      - name: Tests (PostgreSQL)
+        env:
+          TEST_DATABASE_URL: postgresql+asyncpg://yimba:yimba@localhost:5432/yimba_test
+        run: poetry run pytest -q
+
+      - name: Migrations apply and match the models
+        env:
+          PYTHONPATH: src
+          DATABASE_URL: postgresql+asyncpg://yimba:yimba@localhost:5432/yimba_test
+        run: |
+          poetry run alembic downgrade base || true
+          poetry run alembic upgrade head
+          poetry run alembic check

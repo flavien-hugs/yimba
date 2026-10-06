@@ -17,10 +17,10 @@ repos:
     - id: trailing-whitespace
 
 # isort
-- repo: https://github.com/asottile/seed-isort-config
-  rev: v2.2.0
+- repo: https://github.com/PyCQA/isort
+  rev: 5.13.2
   hooks:
-    - id: seed-isort-config
+    - id: isort
 
 # black
 - repo: https://github.com/ambv/black

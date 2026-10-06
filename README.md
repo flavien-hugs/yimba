@@ -1,38 +1,58 @@
 # yimba-api
-> Yimba est une plateforme d'analyse des émotions et opinions en ligne, conçue pour collecter, analyser et surveiller les commentaires provenant de diverses sources, y compris les médias sociaux.
 
-## Prérequis
+Yimba est une plateforme de **veille d'opinion et d'émotions en ligne** : elle collecte des publications (réseaux sociaux,
+presse), les analyse (langue, sentiment, émotion) et alerte quand l'opinion se dégrade, pour éclairer la décision.
 
-* [Python3.10](https://python.org)
-* [Poetry](https://python-poetry.org)
-* [Docker](https://docker.com)
-* [Mongo](https://mongodb.com)
-* [Redis](https://redis.io)
+L'architecture est décrite dans [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 
-## Utilisation
+## Démarrage
 
-- Cloner le dépôt
-```shell
-git clone https://github.com/flavien-hugs/yimba-api.git
-```
-- Éxecuter le projet
-```shell
-cd yimba-api
-make run
+Prérequis : Python 3.12, [Poetry](https://python-poetry.org), Docker.
+
+```sh
+cp .env.example .env         # puis renseigner les valeurs
+make run                     # api + worker + beat + postgres + redis, migrations incluses via le service migrate
 ```
 
-## Exécution des tests
+L'API écoute sur `http://localhost:8800` (documentation sur `/docs`).
 
-- Exécuter le test de couverture
-```shell
-poetry run coverage run -m pytest -v tests
+En local, sans Docker :
+
+```sh
+make install
+poetry run yimba db-upgrade          # DATABASE_URL pointe par défaut sur un fichier SQLite
+poetry run yimba api --reload
+poetry run yimba worker              # nécessite Redis
+poetry run yimba beat
+poetry run yimba collect <watch_id> news   # collecter une source tout de suite, sans file d'attente
 ```
 
-- Vérifier la couverture de test du code
-```shell
-poetry run coverage report -m
+## API
+
+| Méthode | Chemin | Rôle |
+|---|---|---|
+| POST, GET | `/watches` | créer une veille, lister les siennes |
+| GET, PATCH, DELETE | `/watches/{id}` | consulter, modifier, supprimer |
+| GET | `/watches/{id}/mentions` | mentions (filtres : source, langue, sentiment, émotion, dates, texte) |
+| GET | `/watches/{id}/stats` | totaux et séries (`group_by=day\|source\|language`) |
+| GET | `/watches/{id}/alerts` | alertes levées |
+| POST | `/watches/{id}/alerts/{alert_id}/acknowledge` | marquer une alerte comme traitée |
+| GET | `/@ping` | sonde de vie |
+
+Chaque route exige `Authorization: Bearer <token>` et une permission (voir `appdesc.yml`). Une veille n'est visible que
+par son propriétaire.
+
+## Qualité
+
+```sh
+make check          # black, isort, flake8, règles d'architecture, tests
+TEST_DATABASE_URL=postgresql+asyncpg://user:pass@localhost/yimba_test make tests   # tests sur PostgreSQL
 ```
-## Docs utiles
-```shell
-[postman docs](https://www.postman.com/twitter/workspace/twitter-s-public-workspace/collection/9956214-784efcda-ed4c-4491-a4c0-a26470a67400?ctx=documentation)
-```
+
+## Ce qui reste à faire avant la production
+
+- Valider le contrat avec le service d'authentification (`AuthServiceAccessControl`, voir sa docstring).
+- Valider les `mappers` Apify sur des réponses réelles des acteurs configurés.
+- Remplacer l'analyse par lexique par un modèle multilingue évalué sur un corpus français et nouchi annoté.
+- Rapports PDF et nuage de mots (anciens gabarits conservés dans `legacy/`).
+- Conformité données personnelles (ARTCI) : durée de conservation, droit d'effacement.
