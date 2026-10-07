@@ -1,6 +1,8 @@
 name: Backend
 
-# Runs when the backend, the analytics (they read its schema) or the stack definition change.
+# Checks, builds and publishes the backend. Runs when the backend, the analytics (they read its schema) or the stack
+# definition change. On pull requests: check and image. On a push to main, preprod or develop: the same, then the
+# image is published to GHCR, only if both succeeded.
 on:
   pull_request:
     paths:
@@ -15,6 +17,14 @@ on:
       - "analytics/**"
       - "docker-compose.yaml"
       - ".github/workflows/backend.yaml"
+
+# A new push to a pull request cancels its previous run; runs on branches always finish (they may be publishing).
+concurrency:
+  group: backend-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+permissions:
+  contents: read
 
 defaults:
   run:
@@ -96,7 +106,7 @@ jobs:
 
       - uses: docker/setup-buildx-action@v3
 
-      - name: Build the image (not pushed; the cache is reused by the publish workflow)
+      - name: Build the image (not pushed; the publish job reuses its cache)
         uses: docker/build-push-action@v6
         with:
           context: backend
@@ -109,3 +119,55 @@ jobs:
         run: |
           docker run --rm yimba-api:ci --help
           docker run --rm --entrypoint python yimba-api:ci -c "import yimba.entrypoints.api.app, yimba.entrypoints.worker.app"
+
+  publish:
+    needs: [check, image]
+    if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+    environment:
+      name: ${{ (github.ref_name == 'main' && 'latest') || (github.ref_name == 'preprod' && 'preprod') || 'dev' }}
+    strategy:
+      matrix:
+        include:
+          - variant: ""
+            extras: ""
+          # Worker image with transformers (torch CPU) and the MLflow client.
+          - variant: "-ml"
+            extras: "ml tracking"
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Determine image tag
+        id: tag
+        run: |
+          case "${{ github.ref_name }}" in
+            main) echo "name=latest" ;;
+            preprod) echo "name=preprod" ;;
+            *) echo "name=dev" ;;
+          esac >> "$GITHUB_OUTPUT"
+
+      - uses: docker/setup-buildx-action@v3
+
+      - name: Login to Docker registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ secrets.GHRC_USERNAME }}
+          password: ${{ secrets.GHRC_PASSWORD }}
+
+      # The base variant reuses the layers the "image" job just built (same cache scope).
+      - name: Build and push
+        uses: docker/build-push-action@v6
+        with:
+          context: backend
+          push: true
+          build-args: EXTRAS=${{ matrix.extras }}
+          # A moving tag per branch, and an immutable one per commit for rollbacks.
+          tags: |
+            ${{ secrets.GHRC_REGISTRY_ADDR }}:${{ steps.tag.outputs.name }}${{ matrix.variant }}
+            ${{ secrets.GHRC_REGISTRY_ADDR }}:${{ github.sha }}${{ matrix.variant }}
+          labels: |
+            org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
+            org.opencontainers.image.revision=${{ github.sha }}
+          cache-from: type=gha,scope=image${{ matrix.variant }}
+          cache-to: type=gha,mode=max,scope=image${{ matrix.variant }}

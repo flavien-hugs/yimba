@@ -169,6 +169,14 @@ TEST_DATABASE_URL=postgresql+asyncpg://user:pass@localhost/yimba_test make tests
 Une image, trois rôles (`api` par défaut, `worker`, `beat`), construite en deux étapes : Poetry installe les
 dépendances verrouillées (`poetry.lock`) dans un environnement isolé, l'image finale ne garde que cet environnement et
 le code, déjà compilés en bytecode, et tourne en utilisateur non privilégié. Le contexte de construction ne contient que
-le nécessaire (`.dockerignore` en liste blanche : ni `.env`, ni tests, ni `.git`). La CI construit et teste l'image à
-chaque push ; la publication sur GHCR n'a lieu qu'après une CI réussie (image de base et variante `-ml`, plus une
-étiquette par commit).
+le nécessaire (`.dockerignore` en liste blanche : ni `.env`, ni tests, ni `.git`).
+
+Un seul workflow, [`.github/workflows/backend.yaml`](../.github/workflows/backend.yaml), déclenché quand `backend/`,
+`analytics/` ou `docker-compose.yaml` changent :
+
+| Job | Pull request | Push sur `main`, `preprod`, `develop` |
+|---|---|---|
+| `check` : lint, architecture, tests SQLite et PostgreSQL, migrations, dbt et Pandera | oui | oui |
+| `image` : construction de l'image et test de démarrage | oui | oui |
+| `publish` : image de base et variante `-ml` poussées sur GHCR (`latest` / `preprod` / `dev`, plus une étiquette par commit) | non | si `check` et `image` réussissent |
+
