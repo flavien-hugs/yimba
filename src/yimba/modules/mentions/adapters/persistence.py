@@ -172,6 +172,12 @@ class SqlMentionRepository:
         )
         return Page(items=tuple(_to_domain(r) for r in rows), total=total, page=params.page, size=params.size)
 
+    async def sample(self, filters: MentionFilters, size: int) -> Sequence[Mention]:
+        rows = await self._session.scalars(
+            select(MentionRow).where(*_where(filters)).order_by(func.random()).limit(size)
+        )
+        return tuple(_to_domain(row) for row in rows)
+
     def _bucket(self, group_by: GroupBy):
         if group_by is GroupBy.SOURCE:
             return MentionRow.source

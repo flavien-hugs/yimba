@@ -31,9 +31,9 @@ down: ## Stop the stack and remove containers and networks
 
 .PHONY: lint
 lint: ## Format check and lint
-	poetry run black --check src tests migrations
-	poetry run isort --check src tests migrations
-	poetry run flake8 src tests migrations/env.py
+	poetry run black --check src tests migrations analytics
+	poetry run isort --check src tests migrations analytics
+	poetry run flake8 src tests migrations/env.py analytics
 
 .PHONY: lint-arch
 lint-arch: ## Check the architecture rules (import-linter)
@@ -45,6 +45,26 @@ tests: ## Run tests (set TEST_DATABASE_URL to run them on PostgreSQL)
 
 .PHONY: check
 check: lint lint-arch tests ## Everything CI runs
+
+.PHONY: analytics
+analytics: ## Build and test the dbt marts, then run the Pandera quality checks
+	docker compose --profile analytics run --rm --build analytics
+
+.PHONY: dashboards
+dashboards: ## Start Apache Superset (http://localhost:8088)
+	docker compose --profile dashboards up -d --build
+
+.PHONY: annotation
+annotation: ## Start Label Studio (http://localhost:8080)
+	docker compose --profile annotation up -d
+
+.PHONY: mlflow
+mlflow: ## Start the MLflow tracking server (http://localhost:5000)
+	docker compose --profile ml up -d
+
+.PHONY: observability
+observability: ## Start GlitchTip (http://localhost:8000)
+	docker compose --profile observability up -d
 
 .PHONY: pre-commit
 pre-commit: ## Run pre-commit

@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from functools import lru_cache
+
 from yimba.modules.analysis.adapters.lexicon import (
     LexiconEmotionClassifier,
     LexiconSentimentAnalyzer,
@@ -9,7 +11,9 @@ from yimba.modules.analysis.application.ports import SentimentAnalyzer, TextAnal
 from yimba.modules.analysis.application.service import AnalysisService
 
 
+@lru_cache(maxsize=4)
 def build_text_analyzer(engine: str = "lexicon", model_name: str | None = None) -> TextAnalyzer:
+    """One analyzer per process and configuration: a transformers model is loaded once, not on every task."""
     sentiment: SentimentAnalyzer
     if engine == "lexicon":
         sentiment = LexiconSentimentAnalyzer()

@@ -1,0 +1,57 @@
+version: 2
+
+models:
+  - name: stg_watches
+    columns:
+      - name: watch_id
+        data_tests: [unique, not_null]
+
+  - name: stg_mentions
+    columns:
+      - name: mention_id
+        data_tests: [unique, not_null]
+      - name: watch_id
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('stg_watches')
+                field: watch_id
+              config:
+                # Deleting a watch does not delete its mentions yet: orphans are reported, not blocking.
+                severity: warn
+      - name: source
+        data_tests:
+          - accepted_values:
+              arguments:
+                values: [facebook, instagram, youtube, bluesky, news, gdelt]
+      - name: sentiment_label
+        data_tests:
+          - accepted_values:
+              arguments:
+                values: [positive, neutral, negative]
+      - name: emotion
+        data_tests:
+          - accepted_values:
+              arguments:
+                values: [joy, anger, fear, sadness, trust]
+
+  - name: stg_collection_runs
+    columns:
+      - name: run_id
+        data_tests: [unique, not_null]
+      - name: status
+        data_tests:
+          - accepted_values:
+              arguments:
+                values: [running, succeeded, failed]
+
+  - name: stg_alerts
+    columns:
+      - name: alert_id
+        data_tests: [unique, not_null]
+      - name: status
+        data_tests:
+          - accepted_values:
+              arguments:
+                values: [open, acknowledged]

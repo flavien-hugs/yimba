@@ -1,0 +1,22 @@
+name: yimba
+version: "1.0.0"
+config-version: 2
+profile: yimba
+
+model-paths: ["models"]
+macro-paths: ["macros"]
+test-paths: ["tests"]
+packages-install-path: "/tmp/dbt/packages"
+
+# Staging views read the application tables (schema public) without personal data: no text, no author.
+# Marts are the only tables dashboards read.
+models:
+  yimba:
+    staging:
+      +schema: staging
+      +materialized: view
+    marts:
+      +materialized: table
+
+on-run-end:
+  - "{{ grant_read_access() }}"

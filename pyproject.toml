@@ -19,11 +19,22 @@ flower = "^2.0"
 defusedxml = "^0.7"
 typer = ">=0.12"
 sentry-sdk = {extras = ["fastapi"], version = "^2.13.0"}
-transformers = {version = "^4.44", optional = true}
-torch = {version = "^2.4", optional = true}
+# Optional: "ml" for the transformers sentiment engine (CPU build of torch), "tracking" to record evaluations
+# on MLflow. Docker: build with EXTRAS="ml tracking".
+transformers = {version = "^5.19", optional = true}
+torch = {version = "^2.4", optional = true, source = "pytorch-cpu"}
+sentencepiece = {version = ">=0.2", optional = true} # XLM-RoBERTa tokenizers
+protobuf = {version = ">=5", optional = true}
+mlflow-skinny = {version = "^3.16", optional = true}
 
 [tool.poetry.extras]
-ml = ["transformers", "torch"]
+ml = ["transformers", "torch", "sentencepiece", "protobuf"]
+tracking = ["mlflow-skinny"]
+
+[[tool.poetry.source]]
+name = "pytorch-cpu"
+url = "https://download.pytorch.org/whl/cpu"
+priority = "explicit"
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^8.3"

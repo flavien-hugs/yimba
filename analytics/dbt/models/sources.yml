@@ -1,0 +1,20 @@
+version: 2
+
+sources:
+  - name: yimba
+    description: Application tables, written by the API and the collection workers (migrations in migrations/).
+    schema: public
+    tables:
+      - name: watches
+      - name: mentions
+        loaded_at_field: collected_at
+        freshness:
+          warn_after: {count: 6, period: hour}
+          error_after: {count: 24, period: hour}
+      - name: collection_runs
+        loaded_at_field: started_at
+        freshness:
+          warn_after: {count: 2, period: hour}
+          error_after: {count: 24, period: hour}
+      - name: watch_alerts
+      - name: raw_items

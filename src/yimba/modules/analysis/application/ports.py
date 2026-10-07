@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Protocol
+from typing import Mapping, Protocol
 
 from yimba.modules.analysis.domain.model import Emotion, Sentiment, TextAnalysis
 
@@ -22,3 +22,11 @@ class TextAnalyzer(Protocol):
     """What other modules depend on."""
 
     def analyze(self, text: str) -> TextAnalysis: ...
+
+
+class ExperimentTracker(Protocol):
+    """Records an evaluation run (parameters, metrics, files) and returns its id."""
+
+    def log_evaluation(
+        self, run_name: str, params: Mapping[str, str], metrics: Mapping[str, float], artifacts: Mapping[str, str]
+    ) -> str | None: ...

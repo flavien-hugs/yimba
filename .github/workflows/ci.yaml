@@ -34,9 +34,9 @@ jobs:
 
       - name: Format and lint
         run: |
-          poetry run black --check src tests migrations
-          poetry run isort --check src tests migrations
-          poetry run flake8 src tests migrations/env.py
+          poetry run black --check src tests migrations analytics
+          poetry run isort --check src tests migrations analytics
+          poetry run flake8 src tests migrations/env.py analytics
 
       - name: Architecture rules
         run: poetry run lint-imports
@@ -57,3 +57,18 @@ jobs:
           poetry run alembic downgrade base || true
           poetry run alembic upgrade head
           poetry run alembic check
+
+      - name: Analytics (dbt build on the migrated schema, Pandera checks)
+        env:
+          POSTGRES_HOST: localhost
+          POSTGRES_DB: yimba_test
+          POSTGRES_USER: yimba
+          POSTGRES_PASSWORD: yimba
+        working-directory: analytics
+        run: |
+          python -m venv /tmp/analytics && . /tmp/analytics/bin/activate
+          pip install -r requirements.txt pytest
+          pytest -q
+          dbt build --project-dir dbt --profiles-dir dbt
+          python -m quality
+

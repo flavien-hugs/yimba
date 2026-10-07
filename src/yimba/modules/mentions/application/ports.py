@@ -61,3 +61,6 @@ class MentionRepository(Protocol):
     async def search(self, filters: MentionFilters, params: PageParams) -> Page[Mention]: ...
 
     async def stats(self, filters: MentionFilters, group_by: GroupBy) -> Stats: ...
+
+    async def sample(self, filters: MentionFilters, size: int) -> Sequence[Mention]:
+        """Random mentions, e.g. to build an annotation corpus."""

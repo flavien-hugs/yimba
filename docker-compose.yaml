@@ -1,5 +1,8 @@
 x-app: &app
-    build: .
+    build:
+        context: .
+        args:
+            EXTRAS: "${EXTRAS:-}" # "ml tracking" for transformers models and MLflow evaluations
     image: "ghcr.io/flavien-hugs/yimba-api:${IMAGE_VERSION:-dev}"
     restart: unless-stopped
     env_file:
@@ -34,6 +37,8 @@ services:
     worker:
         <<: *app
         command: ["worker", "--concurrency", "2"]
+        volumes:
+            - models:/models # transformers models, downloaded once (HF_HOME)
 
     beat:
         <<: *app
@@ -103,7 +108,96 @@ services:
         volumes:
             - glitchtip_pg:/var/lib/postgresql
 
+    # ---- analytics (optional): docker compose --profile analytics run --rm analytics ------------------------
+    # dbt builds and tests the marts (schema "analytics"), then Pandera checks their quality.
+    # ANALYTICS_EVERY_SECONDS=3600 with "up -d analytics" repeats the run every hour.
+    analytics:
+        build: ./analytics
+        profiles: ["analytics"]
+        restart: "no"
+        environment:
+            POSTGRES_HOST: postgres
+            POSTGRES_DB: "${POSTGRES_DB}"
+            POSTGRES_USER: "${POSTGRES_USER}"
+            POSTGRES_PASSWORD: "${POSTGRES_PASSWORD}"
+            ANALYTICS_EVERY_SECONDS: "${ANALYTICS_EVERY_SECONDS:-}"
+        depends_on:
+            postgres:
+                condition: service_healthy
+
+    # ---- dashboards (optional): docker compose --profile dashboards up -d ----------------------------------
+    # Apache Superset on http://localhost:8088, reading the marts with the read-only role superset_reader.
+    superset-init:
+        build: ./analytics/superset
+        profiles: ["dashboards"]
+        restart: "no"
+        command: ["/app/yimba-init.sh"]
+        environment: &superset-env
+            SUPERSET_SECRET_KEY: "${SUPERSET_SECRET_KEY:-}"
+            SUPERSET_ADMIN_USERNAME: "${SUPERSET_ADMIN_USERNAME:-admin}"
+            SUPERSET_ADMIN_PASSWORD: "${SUPERSET_ADMIN_PASSWORD:-}"
+            SUPERSET_ADMIN_EMAIL: "${SUPERSET_ADMIN_EMAIL:-admin@localhost}"
+            SUPERSET_READER_PASSWORD: "${SUPERSET_READER_PASSWORD:-}"
+            POSTGRES_DB: "${POSTGRES_DB}"
+        volumes:
+            - superset_home:/app/superset_home
+        depends_on:
+            postgres:
+                condition: service_healthy
+
+    superset:
+        build: ./analytics/superset
+        profiles: ["dashboards"]
+        restart: unless-stopped
+        environment: *superset-env
+        ports:
+            - "127.0.0.1:${SUPERSET_PORT:-8088}:8088"
+        volumes:
+            - superset_home:/app/superset_home
+        depends_on:
+            superset-init:
+                condition: service_completed_successfully
+
+    # ---- annotation (optional): docker compose --profile annotation up -d ----------------------------------
+    # Label Studio Community on http://localhost:8080; tasks come from "yimba annotation export".
+    label-studio:
+        image: heartexlabs/label-studio:1.23.2
+        profiles: ["annotation"]
+        restart: unless-stopped
+        environment:
+            LABEL_STUDIO_USERNAME: "${LABEL_STUDIO_USERNAME:-}"
+            LABEL_STUDIO_PASSWORD: "${LABEL_STUDIO_PASSWORD:-}"
+            LABEL_STUDIO_DISABLE_SIGNUP_WITHOUT_LINK: "true"
+        ports:
+            - "127.0.0.1:${LABEL_STUDIO_PORT:-8080}:8080"
+        volumes:
+            - label_studio_data:/label-studio/data
+
+    # ---- model tracking (optional): docker compose --profile ml up -d ---------------------------------------
+    # MLflow on http://localhost:5000: evaluations of the analyzers ("yimba annotation evaluate").
+    mlflow:
+        image: ghcr.io/mlflow/mlflow:v3.16.1
+        profiles: ["ml"]
+        restart: unless-stopped
+        command:
+            - mlflow
+            - server
+            - --host=0.0.0.0
+            - --port=5000
+            - --backend-store-uri=sqlite:////mlflow/mlflow.db
+            - --artifacts-destination=/mlflow/artifacts
+            # Host headers accepted (DNS rebinding protection): the service name and the published port.
+            - --allowed-hosts=mlflow,mlflow:5000,localhost:${MLFLOW_PORT:-5000},127.0.0.1:${MLFLOW_PORT:-5000}
+        ports:
+            - "127.0.0.1:${MLFLOW_PORT:-5000}:5000"
+        volumes:
+            - mlflow_data:/mlflow
+
 volumes:
     yimba_pg:
+    models:
+    superset_home:
+    label_studio_data:
+    mlflow_data:
     glitchtip_pg:
     glitchtip_uploads:

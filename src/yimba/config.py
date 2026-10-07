@@ -50,6 +50,9 @@ class Settings(BaseSettings):
     # Analysis
     ANALYSIS_ENGINE: str = "lexicon"  # "lexicon" (baseline) or "transformers" (needs the 'ml' extra)
     ANALYSIS_MODEL: str | None = None
+    # Evaluations against the annotated corpus are recorded on this MLflow server (needs the 'tracking' extra).
+    MLFLOW_TRACKING_URI: str | None = None
+    MLFLOW_EXPERIMENT: str = "yimba-analysis"
     AUTHOR_HASH_SALT: str = _DEV_SALT
 
     # Alerts

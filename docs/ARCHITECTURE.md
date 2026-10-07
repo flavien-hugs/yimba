@@ -82,6 +82,23 @@ beat (chaque jour) ──► yimba.purge_raw ──► supprime les raw_items no
 - Les auteurs sont stockés sous forme de hash salé (`AUTHOR_HASH_SALT`), jamais en clair, dans les mentions. Les
   réponses brutes (`raw_items`) les contiennent en clair : c'est pourquoi elles sont purgées.
 
+## Analytique et modèles
+
+```
+tables de l'application ──► dbt (analytics/dbt) ──► schéma analytics (marts, sans texte ni auteur) ──► Superset
+                                   │                                │
+                              tests dbt                     Pandera (analytics/quality)
+
+mentions ──► yimba annotation export ──► Label Studio ──► export JSON ──► yimba annotation evaluate ──► MLflow
+```
+
+- L'image `analytics` (dbt-core, Pandera) est séparée de l'application : ses dépendances ne touchent pas l'API.
+- Superset se connecte avec le rôle `superset_reader`, qui ne lit que le schéma `analytics`.
+- L'évaluation est un cas d'usage du module `analysis` (`EvaluateAnalyzer`) ; Label Studio et MLflow sont des
+  adaptateurs (`label_studio.py`, `mlflow_tracker.py`) derrière le port `ExperimentTracker`.
+- `build_text_analyzer` garde un analyseur par configuration et par processus : un modèle transformers n'est chargé
+  qu'une fois.
+
 ## Exploitation
 
 - **Flower** (`yimba flower`, service `flower`) : workers, file d'attente, tâches. Lié à `127.0.0.1`, protégé par

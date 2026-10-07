@@ -21,8 +21,13 @@ RUN --mount=type=cache,target=/root/.cache \
 
 FROM base AS runtime
 
+# HF_HOME: transformers models are downloaded once into this directory (a volume in docker compose).
+ENV HF_HOME=/models \
+    GIT_PYTHON_REFRESH=quiet
+
 ARG UID=10001
-RUN adduser --uid $UID --disabled-password --gecos "" appuser
+RUN adduser --uid $UID --disabled-password --gecos "" appuser \
+    && mkdir -p /models && chown appuser /models
 
 COPY --from=builder /venv /venv
 WORKDIR /app

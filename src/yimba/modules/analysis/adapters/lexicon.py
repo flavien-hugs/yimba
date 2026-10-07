@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 import json
 import re
 import unicodedata
@@ -34,6 +35,11 @@ def _lexicon() -> dict:
         "negations": {_fold(w) for w in raw["negations"]},
         "stopwords": {lang: {_fold(w) for w in words} for lang, words in raw["stopwords"].items()},
     }
+
+
+def lexicon_fingerprint() -> str:
+    """Version of the lexicon (its content hash), recorded with every evaluation."""
+    return hashlib.sha256(_DATA.read_bytes()).hexdigest()[:12]
 
 
 class StopwordLanguageDetector:
