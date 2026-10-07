@@ -1,21 +1,27 @@
+x-infra: &infra
+    postgres:
+        condition: service_healthy
+    redis:
+        condition: service_healthy
+
 x-app: &app
-    build:
-        context: .
-        args:
-            EXTRAS: "${EXTRAS:-}" # "ml tracking" for transformers models and MLflow evaluations
+    build: .
     image: "ghcr.io/flavien-hugs/yimba-api:${IMAGE_VERSION:-dev}"
     restart: unless-stopped
+    init: true # PID 1 forwards signals and reaps the Celery children
     env_file:
         - path: .env
           required: false
     environment:
         DATABASE_URL: "postgresql+asyncpg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}"
         REDIS_URL: "redis://redis:6379/0"
-    depends_on:
-        postgres:
-            condition: service_healthy
-        redis:
-            condition: service_healthy
+    depends_on: *infra
+
+# The services that use the tables start once the migrations are applied.
+x-after-migrate: &after-migrate
+    <<: *infra
+    migrate:
+        condition: service_completed_successfully
 
 services:
     migrate:
@@ -26,6 +32,7 @@ services:
     api:
         <<: *app
         command: ["api"]
+        depends_on: *after-migrate
         ports:
             - "${APP_PORT:-8800}:8800"
         healthcheck:
@@ -36,13 +43,22 @@ services:
 
     worker:
         <<: *app
+        # EXTRAS="ml tracking" (transformers, torch CPU, MLflow client) goes into the worker image only, tagged "-ml";
+        # the other services keep the small image.
+        build:
+            context: .
+            args:
+                EXTRAS: "${EXTRAS:-}"
+        image: "ghcr.io/flavien-hugs/yimba-api:${IMAGE_VERSION:-dev}${EXTRAS:+-ml}"
         command: ["worker", "--concurrency", "2"]
+        depends_on: *after-migrate
         volumes:
             - models:/models # transformers models, downloaded once (HF_HOME)
 
     beat:
         <<: *app
         command: ["beat"]
+        depends_on: *after-migrate
 
     # Celery web UI (workers, queue, tasks). Bound to localhost; set FLOWER_BASIC_AUTH.
     flower:

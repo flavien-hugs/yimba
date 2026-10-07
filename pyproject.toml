@@ -7,7 +7,9 @@ packages = [{include = "yimba", from = "src"}]
 
 [tool.poetry.dependencies]
 python = "^3.12"
-fastapi = {version = ">=0.115", extras = ["standard"]}
+# Not fastapi[standard]: it adds the fastapi CLIs, cloud tooling, OpenTelemetry, Jinja... that the API never uses.
+fastapi = ">=0.115"
+uvicorn = {version = ">=0.30", extras = ["standard"]}
 pydantic = "^2.8"
 pydantic-settings = "^2.4"
 sqlalchemy = {version = "^2.0.30", extras = ["asyncio"]}

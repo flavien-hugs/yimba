@@ -1,14 +1,11 @@
-.git/
-.github/
-.gitignore
-.vscode/
-.coverage
-.flake8
-.pre-commit-config.yaml
-.isort.cfg
-.pytest_cache
-.idea/
-Makefile
-.DS_Store
-.venv
-tests/
+# Build context = only what the image needs. Everything else (.env and other secrets, .git, tests, analytics,
+# legacy, local databases) stays out of the context and of the image.
+*
+!pyproject.toml
+!poetry.lock
+!alembic.ini
+!appdesc.yml
+!src/
+!migrations/
+**/__pycache__
+**/*.py[co]

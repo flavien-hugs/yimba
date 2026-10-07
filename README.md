@@ -45,7 +45,7 @@ L'API écoute sur `http://localhost:8800` (documentation sur `/docs`), Flower (s
 | Tableaux de bord | Apache Superset (Apache 2.0) | `make dashboards` | http://localhost:8088 |
 | Annotation du corpus | Label Studio Community (Apache 2.0) | `make annotation` | http://localhost:8080 |
 | Expériences et versions de modèles | MLflow (Apache 2.0) | `make mlflow` | http://localhost:5000 |
-| Modèles NLP | transformers (Apache 2.0), torch CPU | `EXTRAS="ml tracking"` puis `ANALYSIS_ENGINE=transformers` | — |
+| Modèles NLP | transformers (Apache 2.0), torch CPU | `EXTRAS="ml tracking"` (image du worker) puis `ANALYSIS_ENGINE=transformers` | — |
 
 Tous écoutent sur `127.0.0.1` seulement.
 
@@ -89,8 +89,20 @@ Chaque évaluation est enregistrée dans MLflow : moteur, modèle, version du le
 F1 macro et par classe, matrice de confusion, textes mal classés. L'export n'envoie ni auteur ni lien, et ne pré-remplit
 pas les réponses (`--with-predictions` pour le faire, au risque de biaiser le corpus de référence).
 
-**Modèle transformers** : construire l'image avec `EXTRAS="ml tracking"` et régler `ANALYSIS_ENGINE=transformers`. Le
-modèle est téléchargé une fois dans le volume `models` et chargé une fois par processus worker.
+**Modèle transformers** : mettre `EXTRAS="ml tracking"` et `ANALYSIS_ENGINE=transformers` dans `.env`, puis
+`make run`. Seul le worker reçoit ces dépendances (image `…:dev-ml`, environ 2 Go) ; l'API, beat et Flower gardent
+l'image de base (environ 400 Mo). Le modèle est téléchargé une fois dans le volume `models` et chargé une fois par
+processus worker. Les évaluations (`yimba annotation evaluate`) se lancent dans le worker :
+`docker compose exec worker python -m yimba.entrypoints.cli annotation evaluate /chemin/export.json`.
+
+## Image Docker
+
+Une image, trois rôles (`api` par défaut, `worker`, `beat`), construite en deux étapes : Poetry installe les
+dépendances verrouillées (`poetry.lock`) dans un environnement isolé, l'image finale ne garde que cet environnement et
+le code, déjà compilés en bytecode, et tourne en utilisateur non privilégié. Le contexte de construction ne contient que
+le nécessaire (`.dockerignore` en liste blanche : ni `.env`, ni tests, ni `.git`). La CI construit et teste l'image à
+chaque push ; la publication sur GHCR n'a lieu qu'après une CI réussie (image de base et variante `-ml`, plus une
+étiquette par commit).
 
 En local, sans Docker :
 
