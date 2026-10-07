@@ -1,6 +1,15 @@
 import { describe, expect, it } from 'vitest';
 import { dailySeries, lastDays, niceScale, stackedAreas } from './chart.js';
-import { firstName, formatAgo, formatMoment, formatNumber, formatShare, initials, plural } from './format.js';
+import {
+	summarize,
+	firstName,
+	formatAgo,
+	formatMoment,
+	formatNumber,
+	formatShare,
+	initials,
+	plural
+} from './format.js';
 
 const NOW = new Date(2026, 9, 6, 15, 30).getTime(); // Tuesday 6 October 2026, 15:30 local time
 /** Intl puts no-break spaces (U+00A0, U+202F) where French typography wants them: compare with plain spaces. */
@@ -62,5 +71,27 @@ describe('chart', () => {
 		const areas = stackedAreas(series, { left: 0, top: 0, width: 100, height: 40 }, 40);
 		expect(areas.negative).toBe('M0.0 30.0 L100.0 20.0 L100.0 40.0 L0.0 40.0 Z');
 		expect(areas.positive.startsWith('M0.0 0.0 L100.0 0.0')).toBe(true);
+	});
+});
+
+describe('summarize', () => {
+	it('keeps a short text as it is, without its links', () => {
+		expect(summarize('Rupture de doses à Korhogo https://t.co/abc')).toBe('Rupture de doses à Korhogo');
+	});
+
+	it('keeps whole sentences when they fit', () => {
+		const text =
+			'Première phrase. Deuxième phrase assez longue pour ne pas tenir dans le résumé demandé ici.';
+		expect(summarize(text, 40)).toBe('Première phrase.');
+	});
+
+	it('cuts a long sentence at a word, with an ellipsis', () => {
+		const result = summarize(
+			'Un très long titre sans ponctuation qui continue encore et encore pour dépasser',
+			40
+		);
+		expect(result.endsWith('…')).toBe(true);
+		expect(result.length).toBeLessThanOrEqual(40);
+		expect(result).not.toMatch(/\s…$/);
 	});
 });

@@ -70,6 +70,27 @@ export function formatCompact(value: number): string {
 	return value < 10_000 ? formatNumber(value) : compact.format(value);
 }
 
+const LINK = /https?:\/\/\S+|www\.\S+/g;
+const SENTENCE_END = /(?<=[.!?…])\s+/;
+
+/**
+ * A short version of a text, for a card: its first sentences up to `max` characters, or its first words and "…".
+ * Links are left out (a link says nothing in a summary).
+ */
+export function summarize(text: string, max = 200): string {
+	const clean = text.replace(LINK, ' ').split(/\s+/).filter(Boolean).join(' ');
+	if (clean.length <= max) return clean;
+	let summary = '';
+	for (const sentence of clean.split(SENTENCE_END)) {
+		const next = summary ? `${summary} ${sentence}` : sentence;
+		if (next.length > max) break;
+		summary = next;
+	}
+	if (summary) return summary;
+	const cut = clean.slice(0, max - 1);
+	return `${cut.slice(0, cut.lastIndexOf(' ') > max / 2 ? cut.lastIndexOf(' ') : cut.length).replace(/[\s,;:.-]+$/, '')}…`;
+}
+
 /** "1 conversation", "2 conversations". */
 export function plural(count: number, one: string, many = `${one}s`): string {
 	return `${formatNumber(count)} ${count > 1 ? many : one}`;

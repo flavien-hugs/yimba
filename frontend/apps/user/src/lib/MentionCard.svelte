@@ -1,8 +1,7 @@
 <!-- One conversation. Authors stay anonymous: a short pseudonym tells the voices apart. -->
 <script lang="ts">
 	import type { Mention } from '@yimba/api';
-	import { EMOTIONS, Icon, SENTIMENTS, formatAgo, languageLabel } from '@yimba/ui';
-	import CopyLink from './CopyLink.svelte';
+	import { EMOTIONS, Icon, SENTIMENTS, formatMoment, languageLabel, summarize } from '@yimba/ui';
 	import MentionMetrics from './MentionMetrics.svelte';
 	import { authorLabel, originOf, webAddress } from './mention.js';
 
@@ -43,7 +42,7 @@
 			<div class="text-sm text-muted">
 				{originOf(mention)} ·
 				{#if variant === 'full'}{languageLabel(mention.language)} ·{/if}
-				<time datetime={mention.published_at}>{formatAgo(mention.published_at)}</time>
+				<time datetime={mention.published_at}>{formatMoment(mention.published_at)}</time>
 			</div>
 		</div>
 		<!-- On a phone the short card shows the sentiment here, like the full one. -->
@@ -52,10 +51,10 @@
 
 	<p
 		class="max-w-[62ch] leading-normal break-words whitespace-pre-line {variant === 'voice'
-			? 'line-clamp-5 md:text-[17px]'
-			: 'line-clamp-8 text-lg'}"
+			? 'line-clamp-4 md:text-[17px]'
+			: 'line-clamp-4 text-lg'}"
 	>
-		{mention.text}
+		{summarize(mention.text, variant === 'voice' ? 160 : 220)}
 	</p>
 
 	{#if variant === 'voice'}
@@ -72,7 +71,16 @@
 				<span class="tag bg-lilac font-semibold">{languageLabel(mention.language)}</span>
 			</div>
 			<div class="flex flex-wrap gap-2">
-				{#if original}<CopyLink url={original} />{/if}
+				{#if original}
+					<a
+						href={original}
+						target="_blank"
+						rel="noopener noreferrer"
+						class="btn btn-ghost min-h-11 px-4 text-sm"
+					>
+						Lire l'article <Icon name="external" size={16} /><span class="sr-only">(nouvel onglet)</span>
+					</a>
+				{/if}
 				{#if onselect}
 					<button
 						type="button"
@@ -80,7 +88,7 @@
 						aria-pressed={selected}
 						onclick={() => onselect(mention)}
 					>
-						{selected ? 'Ouverte à côté' : 'Ouvrir'}
+						{selected ? 'Détail ouvert' : 'Voir le détail'}
 					</button>
 				{/if}
 			</div>
