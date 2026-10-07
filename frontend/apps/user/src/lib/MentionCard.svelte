@@ -1,30 +1,38 @@
-<!-- One conversation. Authors stay anonymous: a short pseudonym tells the voices apart. -->
+<!-- One conversation: where it was found, a summary, what the analysis made of it, the figures, the article. -->
 <script lang="ts">
 	import type { Mention } from '@yimba/api';
-	import { EMOTIONS, Icon, SENTIMENTS, formatMoment, languageLabel, summarize } from '@yimba/ui';
+	import {
+		EMOTIONS,
+		Icon,
+		SENTIMENTS,
+		StackedBar,
+		formatMoment,
+		formatShare,
+		languageLabel,
+		summarize
+	} from '@yimba/ui';
+	import CopyLink from './CopyLink.svelte';
 	import MentionMetrics from './MentionMetrics.svelte';
-	import { authorLabel, originOf, webAddress } from './mention.js';
+	import { originOf, webAddress } from './mention.js';
 
 	interface Props {
 		mention: Mention;
 		/** voice: the short card of the home page. */
 		variant?: 'voice' | 'full';
 		class?: string;
-		/** Opens the conversation next to the list (full variant). */
-		onselect?: (mention: Mention) => void;
-		selected?: boolean;
 	}
 
-	let { mention, variant = 'full', class: className = '', onselect, selected = false }: Props = $props();
+	let { mention, variant = 'full', class: className = '' }: Props = $props();
 
 	const sentiment = $derived(SENTIMENTS[mention.sentiment]);
 	const original = $derived(webAddress(mention.url));
+	const scores = $derived(mention.sentiment_scores);
 </script>
 
 <article
 	class="flex min-w-0 flex-col rounded-card bg-white {variant === 'voice'
 		? 'gap-2.5 p-4 md:gap-3 md:p-5'
-		: 'gap-3 p-5'} {selected ? 'outline-2 outline-indigo' : ''} {className}"
+		: 'gap-3 p-5'} {className}"
 >
 	<div class="flex items-center {variant === 'voice' ? 'gap-2.5' : 'gap-3'}">
 		<span
@@ -36,11 +44,8 @@
 			<Icon name="person" size={24} class={sentiment.avatar} />
 		</span>
 		<div class="min-w-0 flex-1 leading-tight">
-			<div class="font-bold">
-				{variant === 'voice' ? 'Personne anonyme' : authorLabel(mention.author_ref)}
-			</div>
+			<div class="font-bold">{originOf(mention)}</div>
 			<div class="text-sm text-muted">
-				{originOf(mention)} ·
 				{#if variant === 'full'}{languageLabel(mention.language)} ·{/if}
 				<time datetime={mention.published_at}>{formatMoment(mention.published_at)}</time>
 			</div>
@@ -64,34 +69,30 @@
 		</div>
 		<MentionMetrics {mention} />
 	{:else}
+		<div class="flex flex-col gap-1.5">
+			<StackedBar negative={scores.negative} neutral={scores.neutral} positive={scores.positive} />
+			<p class="text-[13px] text-muted">
+				Analyse : {formatShare(scores.negative)} négatif, {formatShare(scores.neutral)} neutre, {formatShare(
+					scores.positive
+				)} positif.
+			</p>
+		</div>
 		<MentionMetrics {mention} />
 		<div class="flex flex-wrap items-center justify-between gap-2">
-			<div class="flex flex-wrap gap-2">
-				{@render emotionTag()}
-				<span class="tag bg-lilac font-semibold">{languageLabel(mention.language)}</span>
-			</div>
-			<div class="flex flex-wrap gap-2">
-				{#if original}
+			{@render emotionTag()}
+			{#if original}
+				<div class="flex flex-wrap gap-2">
+					<CopyLink url={original} />
 					<a
 						href={original}
 						target="_blank"
 						rel="noopener noreferrer"
-						class="btn btn-ghost min-h-11 px-4 text-sm"
+						class="btn btn-soft min-h-11 px-4 text-sm"
 					>
 						Lire l'article <Icon name="external" size={16} /><span class="sr-only">(nouvel onglet)</span>
 					</a>
-				{/if}
-				{#if onselect}
-					<button
-						type="button"
-						class="btn min-h-11 px-4 text-sm {selected ? 'btn-primary' : 'btn-soft'}"
-						aria-pressed={selected}
-						onclick={() => onselect(mention)}
-					>
-						{selected ? 'Détail ouvert' : 'Voir le détail'}
-					</button>
-				{/if}
-			</div>
+				</div>
+			{/if}
 		</div>
 	{/if}
 </article>

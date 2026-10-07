@@ -14,7 +14,6 @@
 		plural
 	} from '@yimba/ui';
 	import MentionCard from '#lib/MentionCard.svelte';
-	import MentionDetail from '#lib/MentionDetail.svelte';
 	import { PERIODS, withQuery } from '#lib/watch.js';
 
 	let { data } = $props();
@@ -23,9 +22,6 @@
 	let items = $derived(data.listing?.mentions.items ?? []);
 	let loadedPages = $derived(1);
 	let busy = $state(false);
-	// The conversation opened next to the list; the other filters bring a new list, which closes it.
-	let openId = $state<string | null>(null);
-	const opened = $derived(items.find((mention) => mention.id === openId) ?? null);
 	let error = $state('');
 
 	async function more() {
@@ -142,11 +138,7 @@
 		<div class="flex flex-wrap items-start gap-4.5">
 			<section class="flex min-w-0 flex-[2_1_480px] flex-col gap-3.5" aria-label="Conversations">
 				{#each items as mention (mention.id)}
-					<MentionCard
-						{mention}
-						selected={mention.id === openId}
-						onselect={(chosen) => (openId = chosen.id === openId ? null : chosen.id)}
-					/>
+					<MentionCard {mention} />
 				{:else}
 					<div class="card flex flex-col items-start gap-3">
 						<p class="text-lg">Aucune conversation ne correspond à ces filtres.</p>
@@ -183,9 +175,6 @@
 				class="order-first flex min-w-0 flex-[1_1_280px] flex-col gap-3.5 lg:sticky lg:top-24 lg:order-0 lg:max-h-[calc(100dvh-7rem)] lg:self-start lg:overflow-y-auto"
 				aria-label="Filtres"
 			>
-				{#if opened}
-					<MentionDetail mention={opened} onclose={() => (openId = null)} />
-				{/if}
 				<div class="flex flex-col gap-3.5 rounded-card bg-white p-5">
 					<h2 class="text-xl font-semibold">Affiner</h2>
 					<form
