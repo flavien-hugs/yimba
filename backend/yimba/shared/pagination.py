@@ -1,11 +1,18 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from enum import StrEnum, unique
 from typing import Generic, Sequence, TypeVar
 
 T = TypeVar("T")
 
 MAX_PAGE_SIZE = 100
+
+
+@unique
+class SortOrder(StrEnum):
+    ASC = "asc"
+    DESC = "desc"
 
 
 @dataclass(frozen=True, slots=True)

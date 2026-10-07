@@ -23,6 +23,8 @@ def test_parse_rss():
     assert first.text == "Vaccination : 120 centres ouverts. Le ministère annonce"
     assert first.published_at.isoformat() == "2026-10-05T08:00:00+00:00"
     assert second.external_id == "https://news.example/b" and second.published_at is None
+    # Where it was found: the publication when the feed names it, else the site of the link.
+    assert (first.venue, second.venue) == ("Fraternité", "news.example")
 
 
 def test_google_news_items_keep_the_title_once():
@@ -33,6 +35,42 @@ def test_google_news_items_keep_the_title_once():
     <source url="https://news.abidjan.net">Abidjan.net News</source></item></channel></rss>"""
     (item,) = parse_rss(feed)
     assert item.text == "Abidjan : coupure d'électricité à Cocody" and item.author_handle == "Abidjan.net News"
+    assert item.venue == "Abidjan.net News"
+
+
+async def test_a_network_hiccup_is_retried_and_the_error_names_its_type():
+    attempts = []
+
+    def flaky(request):
+        attempts.append(request)
+        if len(attempts) < 3:
+            raise httpx.ConnectTimeout("")
+        return httpx.Response(200, text=RSS)
+
+    sleeps = []
+
+    async def record(seconds):
+        sleeps.append(seconds)
+
+    client = httpx.AsyncClient(transport=httpx.MockTransport(flaky))
+    target = CollectionTarget("w1", SourceKind.NEWS, ("vaccination",), ("fr",), ("CI",))
+    assert await RssNewsCollector(client, sleep=record).collect(target)
+    assert (len(attempts), sleeps) == (3, [2.0, 4.0])
+
+    def down(request):
+        raise httpx.ConnectTimeout("")
+
+    client = httpx.AsyncClient(transport=httpx.MockTransport(down))
+    with pytest.raises(ExternalServiceError, match=r"\(ConnectTimeout\)"):
+        await RssNewsCollector(client, sleep=record).collect(target)
+
+
+def test_a_google_news_link_does_not_name_the_site():
+    feed = (
+        "<rss><channel><item><title>T</title><link>https://news.google.com/rss/articles/x</link></item></channel></rss>"
+    )
+    (item,) = parse_rss(feed)
+    assert item.venue is None
 
 
 def test_parse_rss_rejects_invalid_xml_and_entity_bombs():
@@ -61,7 +99,8 @@ async def test_rss_collector_queries_google_news_per_keyword_and_filters_extra_f
     target = CollectionTarget("w1", SourceKind.NEWS, ("vaccination",), ("fr",), ("CI",))
     items = await collector.collect(target)
 
-    assert any("news.google.com/rss/search?q=vaccination&hl=fr&gl=CI" in url for url in seen)
+    # The country is part of the query: keywords alone find the news of the whole world.
+    assert any("news.google.com/rss/search?q=vaccination+%22C%C3%B4te+d%27Ivoire%22&hl=fr&gl=CI" in url for url in seen)
     extra_items = [i for i in items if i.text.startswith("Rien")]
     assert extra_items == []  # extra feeds only keep items mentioning a keyword
     assert len([i for i in items if "Vaccination" in i.text]) == 2  # one from each feed

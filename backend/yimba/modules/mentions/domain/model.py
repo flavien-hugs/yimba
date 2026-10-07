@@ -59,6 +59,8 @@ class Mention:
     language: str
     sentiment: Sentiment
     emotion: Emotion | None
+    # Where it was found (the publication, the page, the channel, the hashtag); None when only the platform is known.
+    venue: str | None = None
 
     @property
     def sentiment_label(self) -> SentimentLabel:

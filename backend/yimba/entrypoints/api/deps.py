@@ -10,7 +10,7 @@ from yimba.bootstrap import Container
 from yimba.modules.alerts.public import AcknowledgeAlert, ListAlerts, SqlAlertRepository
 from yimba.modules.identity.public import AccountService, Principal
 from yimba.modules.mentions.adapters.persistence import SqlMentionRepository
-from yimba.modules.mentions.application.use_cases import ComputeStats, SearchMentions
+from yimba.modules.mentions.application.use_cases import ComputePlaces, ComputeStats, ComputeThemes, SearchMentions
 from yimba.modules.watches.adapters.persistence import SqlWatchRepository
 from yimba.modules.watches.application.use_cases import (
     CreateWatch,
@@ -94,6 +94,14 @@ def search_mentions(s: AsyncSession = Depends(get_session)) -> SearchMentions:
 
 def compute_stats(s: AsyncSession = Depends(get_session)) -> ComputeStats:
     return ComputeStats(SqlMentionRepository(s))
+
+
+def compute_places(s: AsyncSession = Depends(get_session)) -> ComputePlaces:
+    return ComputePlaces(SqlMentionRepository(s))
+
+
+def compute_themes(s: AsyncSession = Depends(get_session)) -> ComputeThemes:
+    return ComputeThemes(SqlMentionRepository(s))
 
 
 def list_alerts(s: AsyncSession = Depends(get_session)) -> ListAlerts:

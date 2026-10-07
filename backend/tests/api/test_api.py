@@ -71,6 +71,24 @@ async def test_watch_lifecycle(client):
     assert (await client.get(f"/watches/{watch['id']}", headers=AUTH)).status_code == 404
 
 
+async def test_the_list_of_watches_is_sorted_and_filtered(client):
+    await create_watch(client, name="Santé")
+    await create_watch(client, name="agriculture")
+
+    by_name = (await client.get("/watches?sort=name&order=asc", headers=AUTH)).json()
+    assert [w["name"] for w in by_name["items"]] == ["agriculture", "Santé"]
+    by_name = (await client.get("/watches?sort=name&order=desc", headers=AUTH)).json()
+    assert [w["name"] for w in by_name["items"]] == ["Santé", "agriculture"]
+
+    assert (await client.get("/watches?created_from=2999-01-01", headers=AUTH)).json()["total"] == 0
+    assert (await client.get("/watches?created_to=2000-01-01", headers=AUTH)).json()["total"] == 0
+    assert (await client.get("/watches?created_from=2000-01-01&created_to=2999-01-01", headers=AUTH)).json()[
+        "total"
+    ] == 2
+    assert (await client.get("/watches?sort=color", headers=AUTH)).status_code == 422
+    assert (await client.get("/watches?created_from=yesterday", headers=AUTH)).status_code == 422
+
+
 async def test_validation_errors_are_422(client):
     assert (await create_watch(client, keywords=[])).status_code == 422
     assert (await create_watch(client, sources=["myspace"])).status_code == 422
@@ -98,7 +116,11 @@ async def test_collect_then_read_mentions_stats_and_alerts(client, container):
                     SourceKind.NEWS, "1", "Bravo, super campagne de vaccination", published_at=NOW - timedelta(hours=2)
                 ),
                 CollectedItem(
-                    SourceKind.NEWS, "2", "Honte et scandale: rupture de doses", published_at=NOW - timedelta(hours=1)
+                    SourceKind.NEWS,
+                    "2",
+                    "Honte et scandale: rupture de doses",
+                    published_at=NOW - timedelta(hours=1),
+                    venue="Fraternité Matin",
                 ),
                 CollectedItem(
                     SourceKind.NEWS,
@@ -122,6 +144,16 @@ async def test_collect_then_read_mentions_stats_and_alerts(client, container):
     assert mentions["total"] == 2
     assert {m["sentiment"] for m in mentions["items"]} == {"negative"}
     assert all("awa" not in str(m["author_ref"]) for m in mentions["items"])
+    assert {m["venue"] for m in mentions["items"]} == {None, "Fraternité Matin"}
+
+    places = (await client.get(f"/watches/{watch['id']}/places", headers=AUTH)).json()
+    assert [p["district"] for p in places["districts"]][:2] == ["Denguélé", "Savanes"] and len(
+        places["districts"]
+    ) == 14
+    assert (places["located"], places["analyzed"]) == (0, 3)
+    themes = (await client.get(f"/watches/{watch['id']}/themes?limit=3", headers=AUTH)).json()
+    assert themes == {"themes": [], "analyzed": 3}  # no word comes back in three conversations
+    assert (await client.get("/watches/nope/themes", headers=AUTH)).status_code == 404
 
     assert (await client.get(f"/watches/{watch['id']}/mentions?sentiment=bogus", headers=AUTH)).status_code == 422
     assert (await client.get(f"/watches/{watch['id']}/mentions?q=bravo", headers=AUTH)).json()["total"] == 1

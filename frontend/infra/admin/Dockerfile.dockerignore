@@ -1,0 +1,22 @@
+# Build context of the admin image (docker build -f infra/admin/Dockerfile .).
+# Allowlist: the manifests and the lockfile, the sources of this app and of the shared packages, and its files of infra/.
+# Nothing of the user app but its manifest (the lockfile lists it). Neither node_modules nor build output nor .env
+# reach the build: dependencies are installed from the lockfile inside the image.
+*
+!package.json
+!pnpm-lock.yaml
+!pnpm-workspace.yaml
+!.npmrc
+!infra/security-headers.conf
+!apps/*/package.json
+!infra/admin/nginx.conf.template
+!apps/admin/tsconfig.json
+!apps/admin/vite.config.ts
+!apps/admin/src/
+!packages/*/package.json
+!packages/*/tsconfig.json
+!packages/*/src/
+
+# Inside the allowed directories
+**/*.test.ts
+**/.DS_Store

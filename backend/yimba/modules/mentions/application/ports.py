@@ -63,5 +63,8 @@ class MentionRepository(Protocol):
 
     async def stats(self, filters: MentionFilters, group_by: GroupBy) -> Stats: ...
 
+    async def texts(self, filters: MentionFilters, limit: int) -> Sequence[tuple[str, SentimentLabel]]:
+        """The text and sentiment of the most recent mentions, for the analyses that read the words themselves."""
+
     async def sample(self, filters: MentionFilters, size: int) -> Sequence[Mention]:
         """Random mentions, e.g. to build an annotation corpus."""

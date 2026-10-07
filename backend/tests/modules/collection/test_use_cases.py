@@ -97,6 +97,11 @@ def test_is_due_rules():
     assert not is_due(run_at(NOW - timedelta(minutes=5), RunStatus.RUNNING), 60, NOW)  # still in flight
     assert is_due(run_at(NOW - timedelta(hours=2), RunStatus.RUNNING), 1440, NOW)  # worker died, retry
     assert is_due(run_at(NOW - timedelta(hours=2), RunStatus.FAILED), 60, NOW)
+    # A failure is tried again after ten minutes, not after a whole period; a short period still wins.
+    assert not is_due(run_at(NOW - timedelta(minutes=9), RunStatus.FAILED), 1440, NOW)
+    assert is_due(run_at(NOW - timedelta(minutes=10), RunStatus.FAILED), 1440, NOW)
+    assert not is_due(run_at(NOW - timedelta(minutes=4), RunStatus.FAILED), 5, NOW)
+    assert is_due(run_at(NOW - timedelta(minutes=5), RunStatus.FAILED), 5, NOW)
 
 
 async def test_planner_enqueues_only_due_pairs_of_active_watches():

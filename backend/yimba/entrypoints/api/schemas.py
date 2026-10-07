@@ -9,6 +9,7 @@ from yimba.modules.alerts.public import Alert
 from yimba.modules.analysis.public import Emotion, SentimentLabel
 from yimba.modules.identity.public import Role, TokenPair, User
 from yimba.modules.mentions.application.ports import Counts, Stats
+from yimba.modules.mentions.application.use_cases import Places, Themes
 from yimba.modules.mentions.domain.model import Mention
 from yimba.modules.watches.domain.model import ALLOWED_FREQUENCIES_MINUTES, Watch
 from yimba.shared.pagination import Page
@@ -97,6 +98,7 @@ class MentionOut(BaseModel):
     url: str | None
     text: str
     author_ref: str | None
+    venue: str | None = Field(None, description="Where it was found: publication, page, channel or hashtag")
     published_at: datetime
     language: str
     sentiment: SentimentLabel
@@ -115,6 +117,7 @@ class MentionOut(BaseModel):
             url=mention.url,
             text=mention.text,
             author_ref=mention.author_ref,
+            venue=mention.venue,
             published_at=mention.published_at,
             language=mention.language,
             sentiment=mention.sentiment.label,
@@ -167,6 +170,48 @@ class StatsOut(BaseModel):
             totals=CountsOut.of(stats.totals),
             buckets=[BucketOut(key=b.key, counts=CountsOut.of(b.counts)) for b in stats.buckets],
             emotions=stats.emotions,
+        )
+
+
+class PlaceOut(BaseModel):
+    district: str
+    counts: CountsOut
+
+
+class PlacesOut(BaseModel):
+    districts: list[PlaceOut]
+    located: int = Field(description="Conversations that name a district or one of its towns")
+    analyzed: int = Field(description="Conversations read (the most recent of the period, at most 5000)")
+
+    @classmethod
+    def of(cls, places: Places) -> "PlacesOut":
+        return cls(
+            districts=[PlaceOut(district=p.district, counts=CountsOut.of(p.counts)) for p in places.districts],
+            located=places.located,
+            analyzed=places.analyzed,
+        )
+
+
+class ThemeOut(BaseModel):
+    term: str
+    mentions: int = Field(description="Conversations that use the word")
+    negative: int
+    neutral: int
+    positive: int
+
+
+class ThemesOut(BaseModel):
+    themes: list[ThemeOut]
+    analyzed: int
+
+    @classmethod
+    def of(cls, result: Themes) -> "ThemesOut":
+        return cls(
+            themes=[
+                ThemeOut(term=t.term, mentions=t.mentions, negative=t.negative, neutral=t.neutral, positive=t.positive)
+                for t in result.themes
+            ],
+            analyzed=result.analyzed,
         )
 
 

@@ -9,6 +9,8 @@ from yimba.shared.source import SourceKind
 
 # A run that has been "running" for longer than this is considered dead (worker crash) and may be retried.
 STALE_RUN_AFTER = timedelta(minutes=30)
+# A failed run (source unreachable, rate limited) is tried again after this, not after a whole period.
+RETRY_FAILED_AFTER = timedelta(minutes=10)
 
 
 @dataclass(frozen=True, slots=True)
@@ -28,6 +30,8 @@ class CollectedItem:
     shares: int = 0
     views: int = 0
     comments: int = 0
+    # Where it was found, as a person would name it: the publication, the page, the channel, the hashtag.
+    venue: str | None = None
     raw: Mapping[str, Any] | None = field(default=None, compare=False)
 
 
@@ -74,4 +78,7 @@ def is_due(last_run: CollectionRun | None, frequency_minutes: int, now: datetime
         return True
     if last_run.status is RunStatus.RUNNING:
         return now - last_run.started_at >= STALE_RUN_AFTER
-    return now - last_run.started_at >= timedelta(minutes=frequency_minutes)
+    wait = timedelta(minutes=frequency_minutes)
+    if last_run.status is RunStatus.FAILED:
+        wait = min(wait, RETRY_FAILED_AFTER)
+    return now - last_run.started_at >= wait
