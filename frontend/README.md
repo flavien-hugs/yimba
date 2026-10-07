@@ -94,7 +94,7 @@ Une image par application, chacune avec son propre `Dockerfile` et son propre co
 | utilisateur | `infra/user/Dockerfile` | `ghcr.io/flavien-hugs/yimba-frontend-user` | http://localhost:3000 (`FRONTEND_PORT`) |
 | administration | `infra/admin/Dockerfile` | `ghcr.io/flavien-hugs/yimba-frontend-admin` | http://localhost:3001/admin (`ADMIN_PORT`) |
 
-`make run` à la racine les construit et les lance (services `frontend` et `admin`). À la main :
+`make run` à la racine les construit et les lance (services `frontend-user` et `frontend-admin`). À la main :
 `docker build -f infra/user/Dockerfile -t yimba-frontend-user .` depuis `frontend/` (idem avec `admin`).
 
 - Les deux images n'ont rien en commun que la configuration des en-têtes de sécurité (`infra/security-headers.conf`) : chaque `Dockerfile` a

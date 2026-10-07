@@ -11,7 +11,7 @@
 ARG NODE_VERSION=24
 ARG NGINX_VERSION=1.30
 
-# ---- dependencies: downloaded from the lockfile ---------------------------------------------------------------------
+# DEPENDENCIES: downloaded from the lockfile
 FROM node:${NODE_VERSION}-alpine AS deps
 ENV COREPACK_ENABLE_DOWNLOAD_PROMPT=0
 WORKDIR /app
@@ -24,7 +24,7 @@ COPY packages/api/package.json packages/api/
 COPY packages/ui/package.json packages/ui/
 RUN --mount=type=cache,id=pnpm-store,target=/pnpm-store pnpm fetch --store-dir /pnpm-store
 
-# ---- builder ---------------------------------------------------------------------------------------------------------
+# BUILDER
 FROM deps AS build
 # Where the administration sends to the user app ("Aller sur Yimba"): its address, from the outside.
 ARG VITE_USER_URL=/
@@ -37,7 +37,7 @@ RUN --mount=type=cache,id=pnpm-store,target=/pnpm-store \
     # nginx serves the gzip files (gzip_static); it has no brotli module, so the .br files would only weigh.
     && find apps/admin/build -name '*.br' -delete
 
-# ---- image -----------------------------------------------------------------------------------------------------------
+# IMAGE
 FROM nginxinc/nginx-unprivileged:${NGINX_VERSION}-alpine-slim
 # Where /api goes (host:port). The entrypoint writes the configuration from the template at start, fills
 # NGINX_LOCAL_RESOLVERS from /etc/resolv.conf (Docker or Kubernetes DNS), and starts one worker per CPU granted to
