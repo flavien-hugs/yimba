@@ -1,0 +1,4 @@
+# Build context of the Superset image (docker compose: build ./analytics/superset): only its two files.
+*
+!superset_config.py
+!init.sh

@@ -215,3 +215,8 @@ frontend/build/
 frontend/.vite/
 frontend/coverage/
 *.tsbuildinfo
+
+# dbt (local runs)
+analytics/dbt/target/
+analytics/dbt/logs/
+analytics/dbt/dbt_packages/

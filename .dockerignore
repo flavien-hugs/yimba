@@ -1,0 +1,4 @@
+# No image is built from the repository root: each application has its own build context, with its own
+# .dockerignore (backend/, analytics/, analytics/superset/, and frontend/ when it exists).
+# If a build ever uses the root as context, send nothing: no .env, no .git, no other application.
+*

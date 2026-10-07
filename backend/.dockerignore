@@ -1,5 +1,6 @@
-# Build context = only what the image needs. Everything else (.env and other secrets, .git, tests, analytics,
-# legacy, local databases) stays out of the context and of the image.
+# Build context of the backend image (docker compose: build ./backend).
+# Allowlist: only what the Dockerfile copies. Tests, .env and other secrets, local databases, virtualenvs and caches
+# never reach the build or the image.
 *
 !pyproject.toml
 !poetry.lock
@@ -7,5 +8,8 @@
 !appdesc.yml
 !yimba/
 !migrations/
+
+# Inside the allowed directories
 **/__pycache__
 **/*.py[co]
+**/.DS_Store
