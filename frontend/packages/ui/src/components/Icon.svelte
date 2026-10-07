@@ -13,6 +13,12 @@
 		| 'person'
 		| 'users'
 		| 'back'
+		| 'close'
+		| 'calendar'
+		| 'sort-asc'
+		| 'sort-desc'
+		| 'az'
+		| 'eye-off'
 		| 'list'
 		| 'heart'
 		| 'share'
@@ -82,6 +88,26 @@
 		<path d="M14 5.2a3 3 0 0 1 0 5.6M16 13.8c1.6.6 2.9 1.9 3.5 4.2" />
 	{:else if name === 'back'}
 		<path d="M13 5 7 11l6 6" />
+	{:else if name === 'close'}
+		<path d="m5.5 5.5 11 11M16.5 5.5l-11 11" />
+	{:else if name === 'calendar'}
+		<rect x="3" y="4.5" width="16" height="14" rx="2" />
+		<path d="M3 9h16M7.5 3v3M14.5 3v3" />
+	{:else if name === 'sort-asc'}
+		<path d="M7 17V5M3.5 8.5 7 5l3.5 3.5" />
+		<path d="M13 6h6M13 10.5h4M13 15h2" />
+	{:else if name === 'sort-desc'}
+		<path d="M7 5v12M3.5 13.5 7 17l3.5-3.5" />
+		<path d="M13 6h2M13 10.5h4M13 15h6" />
+	{:else if name === 'az'}
+		<path d="M3.5 10.5 6 4l2.5 6.5M4.4 8.3h3.2" />
+		<path d="M12.5 5h4.5l-4.5 6h4.5M12.5 14h4.5l-4.5 5h4.5" />
+	{:else if name === 'eye-off'}
+		<path d="M3 3l16 16" />
+		<path
+			d="M8.7 5.4A9 9 0 0 1 11 5c5.8 0 9 6 9 6a15 15 0 0 1-2.7 3.4M5.2 7.2A15 15 0 0 0 2 11s3.2 6 9 6c1.3 0 2.5-.3 3.5-.8"
+		/>
+		<path d="M9 9.2a2.6 2.6 0 0 0 3.7 3.6" />
 	{:else if name === 'list'}
 		<path d="M8 6h10M8 11h10M8 16h10" />
 		<circle cx="4.5" cy="6" r=".8" fill="currentColor" />

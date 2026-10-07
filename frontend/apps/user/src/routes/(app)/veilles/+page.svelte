@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { invalidate } from '$app/navigation';
+	import { goto, invalidate } from '$app/navigation';
 	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
 	import { api, describe, type Watch } from '@yimba/api';
@@ -29,6 +29,20 @@
 		{ value: null, label: 'Liste', icon: 'list' },
 		{ value: 'cartes', label: 'Cartes', icon: 'home' }
 	] as const;
+
+	const SORTS = [
+		{ value: 'created', param: null, label: 'Date', icon: 'calendar' },
+		{ value: 'name', param: 'nom', label: 'Nom', icon: 'az' }
+	] as const;
+	const orderLabel = $derived(
+		data.sort === 'name'
+			? data.order === 'asc'
+				? 'A → Z'
+				: 'Z → A'
+			: data.order === 'asc'
+				? 'Plus anciennes d’abord'
+				: 'Plus récentes d’abord'
+	);
 
 	let pending = $state<string | null>(null);
 	let error = $state('');
@@ -88,19 +102,19 @@
 	</header>
 
 	{#if data.counts.all > 0}
-		<div class="flex flex-wrap items-center justify-between gap-x-4 gap-y-3">
-			<nav class="flex flex-wrap gap-2" aria-label="État des veilles">
-				{#each TABS as tab (tab.label)}
-					<a
-						href={changed({ etat: tab.value, page: null })}
-						class="tab"
-						aria-current={data.filter === tab.value ? 'true' : undefined}
-					>
-						{tab.label} · {formatNumber(tab.count())}
-					</a>
-				{/each}
-			</nav>
-			<div class="flex w-full flex-wrap items-center gap-3 sm:w-auto">
+		<div class="flex flex-col gap-3">
+			<div class="flex flex-wrap items-center justify-between gap-x-4 gap-y-3">
+				<nav class="flex flex-wrap gap-2" aria-label="État des veilles">
+					{#each TABS as tab (tab.label)}
+						<a
+							href={changed({ etat: tab.value, page: null })}
+							class="tab"
+							aria-current={data.filter === tab.value ? 'true' : undefined}
+						>
+							{tab.label} · {formatNumber(tab.count())}
+						</a>
+					{/each}
+				</nav>
 				<nav class="flex rounded-field bg-white p-1" aria-label="Affichage">
 					{#each VIEWS as option (option.label)}
 						{@const current = (data.view === 'cartes') === (option.value === 'cartes')}
@@ -115,23 +129,96 @@
 						</a>
 					{/each}
 				</nav>
+			</div>
+
+			<div class="flex flex-wrap items-center gap-x-3 gap-y-2.5">
+				<form method="get" role="search" class="flex min-w-0 flex-[1_1_220px] sm:max-w-xs">
+					{#each [['etat', data.filter], ['vue', data.view === 'cartes' ? 'cartes' : null], ['tri', data.sort === 'name' ? 'nom' : null], ['ordre', data.order === 'asc' ? 'asc' : null], ['du', data.created.from], ['au', data.created.to]] as const as [name, value] (name)}
+						{#if value}<input type="hidden" {name} {value} />{/if}
+					{/each}
+					<label class="flex min-h-11.5 w-full items-center gap-2.5 rounded-field bg-white px-4">
+						<Icon name="search" size={18} class="text-muted" />
+						<span class="sr-only">Chercher une veille par son nom</span>
+						<input
+							name="q"
+							type="search"
+							value={data.search}
+							placeholder="Chercher une veille"
+							class="min-w-0 flex-1 bg-transparent outline-none placeholder:text-muted"
+						/>
+					</label>
+				</form>
+
 				<form
 					method="get"
-					role="search"
-					class="flex min-h-11.5 w-full items-center gap-2.5 rounded-field bg-white px-4 sm:w-80"
+					class="flex flex-wrap items-center gap-2 rounded-field bg-white px-3.5 py-1.5 {data.created.from ||
+					data.created.to
+						? 'ring-2 ring-indigo'
+						: ''}"
+					aria-label="Date de création"
 				>
-					<Icon name="search" size={18} class="text-muted" />
-					<label for="watch-search" class="sr-only">Chercher une veille par son nom</label>
+					{#each [['etat', data.filter], ['vue', data.view === 'cartes' ? 'cartes' : null], ['tri', data.sort === 'name' ? 'nom' : null], ['ordre', data.order === 'asc' ? 'asc' : null], ['q', data.search]] as const as [name, value] (name)}
+						{#if value}<input type="hidden" {name} {value} />{/if}
+					{/each}
+					<Icon name="calendar" size={18} class="text-muted" />
+					<span class="text-sm font-bold text-muted">Créée du</span>
 					<input
-						id="watch-search"
-						name="q"
-						type="search"
-						value={data.search}
-						placeholder="Chercher une veille"
-						class="min-w-0 flex-1 bg-transparent outline-none placeholder:text-muted"
+						type="date"
+						name="du"
+						value={data.created.from ?? ''}
+						max={data.created.to ?? undefined}
+						aria-label="Créée à partir du"
+						class="min-h-9.5 rounded-[6px] bg-lilac px-2 text-sm"
+						onchange={(event) => goto(changed({ du: event.currentTarget.value || null, page: null }))}
 					/>
-					{#if data.filter}<input type="hidden" name="etat" value={data.filter} />{/if}
+					<span class="text-sm font-bold text-muted">au</span>
+					<input
+						type="date"
+						name="au"
+						value={data.created.to ?? ''}
+						min={data.created.from ?? undefined}
+						aria-label="Créée jusqu'au"
+						class="min-h-9.5 rounded-[6px] bg-lilac px-2 text-sm"
+						onchange={(event) => goto(changed({ au: event.currentTarget.value || null, page: null }))}
+					/>
+					{#if data.created.from || data.created.to}
+						<a
+							href={changed({ du: null, au: null, page: null })}
+							class="flex size-9.5 items-center justify-center rounded-[6px] text-muted hover:bg-haze hover:text-ink"
+							aria-label="Retirer le filtre de date"
+							title="Retirer le filtre de date"
+						>
+							<Icon name="close" size={16} />
+						</a>
+					{/if}
 				</form>
+
+				<div class="flex items-center gap-2 sm:ml-auto">
+					<nav class="flex rounded-field bg-white p-1" aria-label="Trier par">
+						{#each SORTS as option (option.label)}
+							{@const current = data.sort === option.value}
+							<a
+								href={changed({ tri: option.param, page: null })}
+								aria-current={current ? 'true' : undefined}
+								title="Trier par {option.label.toLowerCase()}"
+								class="flex min-h-9.5 items-center gap-2 rounded-field px-3 text-sm font-bold no-underline {current
+									? 'bg-indigo-soft text-indigo-deep'
+									: 'text-muted hover:text-ink'}"
+							>
+								<Icon name={option.icon} size={16} />{option.label}
+							</a>
+						{/each}
+					</nav>
+					<a
+						href={changed({ ordre: data.order === 'asc' ? null : 'asc', page: null })}
+						class="flex min-h-11.5 items-center gap-2 rounded-field bg-white px-3.5 text-sm font-bold text-ink no-underline hover:text-indigo"
+						title="Inverser l'ordre"
+						aria-label="{orderLabel} : inverser l'ordre"
+					>
+						<Icon name={data.order === 'asc' ? 'sort-asc' : 'sort-desc'} size={18} />
+						{orderLabel}
+					</a>
+				</div>
 			</div>
 		</div>
 	{/if}
@@ -243,10 +330,11 @@
 		{:else}
 			<div class="overflow-hidden rounded-card bg-white">
 				<div
-					class="hidden grid-cols-[minmax(0,1fr)_96px_150px_110px_312px] items-center gap-x-4 border-b border-rule px-5.5 py-3 text-sm font-bold text-muted lg:grid"
+					class="hidden grid-cols-[minmax(0,1fr)_96px_88px_130px_100px_280px] items-center gap-x-4 border-b border-rule px-5.5 py-3 text-sm font-bold text-muted xl:grid"
 					aria-hidden="true"
 				>
 					<span>Veille</span>
+					<span>Créée le</span>
 					<span class="text-right">Conversations</span>
 					<span>Négatif</span>
 					<span class="text-right">Alertes</span>
@@ -258,7 +346,7 @@
 						{@const openAlerts = summary?.openAlerts ?? 0}
 						{@const share = summary?.totals.total ? summary.totals.negative_share : null}
 						<li
-							class="grid gap-x-4 gap-y-3 px-5.5 py-4 lg:grid-cols-[minmax(0,1fr)_96px_150px_110px_312px] lg:items-center"
+							class="grid gap-x-4 gap-y-3 px-5.5 py-4 xl:grid-cols-[minmax(0,1fr)_96px_88px_130px_100px_280px] xl:items-center"
 						>
 							<div class="flex min-w-0 flex-col gap-1">
 								<div class="flex items-center gap-2.5">
@@ -293,25 +381,29 @@
 								</p>
 							</div>
 
-							<div class="grid grid-cols-3 gap-3 tabular-nums lg:contents">
-								<div class="lg:text-right">
-									<span class="text-[13px] text-muted lg:sr-only">Conversations</span>
+							<div class="grid grid-cols-2 gap-3 tabular-nums sm:grid-cols-4 xl:contents">
+								<div class="text-sm xl:text-muted">
+									<span class="text-[13px] text-muted xl:sr-only">Créée le</span>
+									<div>{formatDate(watch.created_at)}</div>
+								</div>
+								<div class="xl:text-right">
+									<span class="text-[13px] text-muted xl:sr-only">Conversations</span>
 									<div class="figure text-xl">{summary ? formatNumber(summary.totals.total) : '—'}</div>
 								</div>
 								<div>
-									<span class="text-[13px] text-muted lg:sr-only">Négatif</span>
+									<span class="text-[13px] text-muted xl:sr-only">Négatif</span>
 									<div class="flex items-center gap-2.5">
 										<span class="figure w-12 text-xl">{share === null ? '—' : formatShare(share)}</span>
 										<span
-											class="hidden h-2 flex-1 overflow-hidden rounded-[4px] bg-track lg:block"
+											class="hidden h-2 flex-1 overflow-hidden rounded-[4px] bg-track xl:block"
 											aria-hidden="true"
 										>
 											<span class="block h-full bg-clay" style:width="{(share ?? 0) * 100}%"></span>
 										</span>
 									</div>
 								</div>
-								<div class="lg:text-right">
-									<span class="text-[13px] text-muted lg:sr-only">Alertes à traiter</span>
+								<div class="xl:text-right">
+									<span class="text-[13px] text-muted xl:sr-only">Alertes à traiter</span>
 									<div>
 										{#if openAlerts}
 											<a
@@ -327,22 +419,22 @@
 								</div>
 							</div>
 
-							<div class="grid grid-cols-3 gap-2 lg:justify-self-end">
+							<div class="grid grid-cols-3 gap-2 xl:justify-self-end">
 								<a
 									href={withQuery(resolve('/(app)/paroles'), { veille: watch.id })}
-									class="btn btn-soft min-h-10 px-3 text-sm lg:w-24"
+									class="btn btn-soft min-h-10 px-2 text-sm xl:w-[88px]"
 								>
 									Paroles
 								</a>
 								<a
 									href={resolve('/(app)/veilles/[id]', { id: watch.id })}
-									class="btn btn-ghost min-h-10 px-3 text-sm lg:w-24"
+									class="btn btn-ghost min-h-10 px-2 text-sm xl:w-[88px]"
 								>
 									Réglages
 								</a>
 								<button
 									type="button"
-									class="btn btn-ghost min-h-10 px-3 text-sm lg:w-24"
+									class="btn btn-ghost min-h-10 px-2 text-sm xl:w-[88px]"
 									disabled={pending === watch.id}
 									onclick={() => toggle(watch)}
 								>

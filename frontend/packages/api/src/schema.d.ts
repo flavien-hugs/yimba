@@ -516,6 +516,11 @@ export interface components {
          */
         SentimentLabel: "positive" | "neutral" | "negative";
         /**
+         * SortOrder
+         * @enum {string}
+         */
+        SortOrder: "asc" | "desc";
+        /**
          * SourceKind
          * @description Where a mention comes from. Shared vocabulary of watches, collection and mentions.
          * @enum {string}
@@ -682,6 +687,11 @@ export interface components {
              */
             updated_at: string;
         };
+        /**
+         * WatchSort
+         * @enum {string}
+         */
+        WatchSort: "created" | "name";
         /** WatchUpdate */
         WatchUpdate: {
             /** Name */
@@ -1024,6 +1034,14 @@ export interface operations {
                 search?: string | null;
                 /** @description Only the active watches (true) or the paused ones (false) */
                 active?: boolean | null;
+                /** @description Created on or after this day */
+                created_from?: string | null;
+                /** @description Created on or before this day */
+                created_to?: string | null;
+                /** @description Sort by creation date or by name */
+                sort?: components["schemas"]["WatchSort"];
+                /** @description Direction of the sort */
+                order?: components["schemas"]["SortOrder"];
             };
             header?: never;
             path?: never;

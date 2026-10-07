@@ -6,6 +6,7 @@
 	import { api, describe, type Source, type Watch, type WatchCreate } from '@yimba/api';
 	import {
 		FREQUENCIES,
+		Icon,
 		Notice,
 		Pagne,
 		SearchSelect,
@@ -248,7 +249,7 @@
 									type="button"
 									class="flex size-7.5 items-center justify-center rounded-full text-lg hover:bg-indigo-mist"
 									aria-label="Retirer {keyword}"
-									onclick={() => keywords.splice(index, 1)}>×</button
+									onclick={() => keywords.splice(index, 1)}><Icon name="close" size={14} /></button
 								>
 							</span>
 						{/each}

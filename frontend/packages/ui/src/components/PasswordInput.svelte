@@ -1,4 +1,5 @@
 <script lang="ts">
+	import Icon from './Icon.svelte';
 	interface Props {
 		id: string;
 		value?: string;
@@ -38,11 +39,12 @@
 	/>
 	<button
 		type="button"
-		class="min-h-11 min-w-11 rounded-[6px] px-2 text-sm font-bold text-indigo hover:bg-indigo-wash"
+		class="flex size-11 items-center justify-center rounded-[6px] text-indigo hover:bg-indigo-wash"
 		aria-controls={id}
-		aria-pressed={visible}
+		aria-label={visible ? 'Masquer le mot de passe' : 'Afficher le mot de passe'}
+		title={visible ? 'Masquer le mot de passe' : 'Afficher le mot de passe'}
 		onclick={() => (visible = !visible)}
 	>
-		{visible ? 'Masquer' : 'Voir'}
+		<Icon name={visible ? 'eye-off' : 'eye'} />
 	</button>
 </div>
