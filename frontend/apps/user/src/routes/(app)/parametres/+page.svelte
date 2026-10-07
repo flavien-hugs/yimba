@@ -2,6 +2,7 @@
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
 	import { describe, session } from '@yimba/api';
+	import { PERIODS, defaultPeriod, rememberPeriod } from '#lib/watch.js';
 	import {
 		Icon,
 		Notice,
@@ -15,6 +16,8 @@
 	let { data } = $props();
 
 	const user = $derived(session.user ?? data.user);
+
+	let period = $state(defaultPeriod());
 
 	let current = $state('');
 	let next = $state('');
@@ -50,11 +53,11 @@
 </script>
 
 <svelte:head>
-	<title>Mon compte · Yimba</title>
+	<title>Paramètres · Yimba</title>
 </svelte:head>
 
-<div class="mx-auto flex w-full max-w-[760px] flex-col gap-5">
-	<h1 class="text-[32px] leading-[1.12] font-bold tracking-[-0.02em] sm:text-4xl">Mon compte</h1>
+<div class="flex w-full max-w-190 flex-col gap-5">
+	<h1 class="text-[32px] leading-[1.12] font-bold tracking-[-0.02em] sm:text-4xl">Paramètres</h1>
 
 	<section class="card flex flex-wrap items-center gap-5" aria-label="Profil">
 		<span
@@ -79,6 +82,34 @@
 				<Icon name="logout" size={18} /> Se déconnecter
 			</button>
 		</div>
+	</section>
+
+	<section class="card flex flex-col gap-4 sm:p-8" aria-labelledby="prefs-title">
+		<div class="flex flex-col gap-1">
+			<h2 id="prefs-title" class="text-2xl font-semibold">Préférences</h2>
+			<p class="text-muted">Gardées sur cet appareil.</p>
+		</div>
+		<fieldset class="flex flex-col gap-2">
+			<legend class="mb-2 font-bold">Période affichée par défaut</legend>
+			<div class="flex flex-wrap gap-2">
+				{#each PERIODS as option (option)}
+					<button
+						type="button"
+						class="tab"
+						aria-pressed={period === option}
+						onclick={() => {
+							period = option;
+							rememberPeriod(option);
+						}}
+					>
+						{option} jours
+					</button>
+				{/each}
+			</div>
+			<p class="text-sm text-muted">
+				Celle du tableau de bord et des conversations quand l'adresse n'en précise pas.
+			</p>
+		</fieldset>
 	</section>
 
 	<section class="card flex flex-col gap-4 sm:p-8" aria-labelledby="password-title">

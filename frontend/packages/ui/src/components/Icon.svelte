@@ -13,6 +13,7 @@
 		| 'person'
 		| 'users'
 		| 'back'
+		| 'settings'
 		| 'close'
 		| 'calendar'
 		| 'sort-asc'
@@ -88,6 +89,12 @@
 		<path d="M14 5.2a3 3 0 0 1 0 5.6M16 13.8c1.6.6 2.9 1.9 3.5 4.2" />
 	{:else if name === 'back'}
 		<path d="M13 5 7 11l6 6" />
+	{:else if name === 'settings'}
+		<circle cx="11" cy="11" r="2.8" />
+		<path
+			d="M11 2.5v2.2M11 17.3v2.2M2.5 11h2.2M17.3 11h2.2M5 5l1.6 1.6M15.4 15.4 17 17M17 5l-1.6 1.6M6.6 15.4 5 17"
+		/>
+		<circle cx="11" cy="11" r="6.2" />
 	{:else if name === 'close'}
 		<path d="m5.5 5.5 11 11M16.5 5.5l-11 11" />
 	{:else if name === 'calendar'}

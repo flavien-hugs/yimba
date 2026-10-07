@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { goto, invalidate } from '$app/navigation';
+	import { invalidate } from '$app/navigation';
 	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
 	import { api, describe, type Watch } from '@yimba/api';
@@ -133,7 +133,7 @@
 
 			<div class="flex flex-wrap items-center gap-x-3 gap-y-2.5">
 				<form method="get" role="search" class="flex min-w-0 flex-[1_1_220px] sm:max-w-xs">
-					{#each [['etat', data.filter], ['vue', data.view === 'cartes' ? 'cartes' : null], ['tri', data.sort === 'name' ? 'nom' : null], ['ordre', data.order === 'asc' ? 'asc' : null], ['du', data.created.from], ['au', data.created.to]] as const as [name, value] (name)}
+					{#each [['etat', data.filter], ['vue', data.view === 'cartes' ? 'cartes' : null], ['tri', data.sort === 'name' ? 'nom' : null], ['ordre', data.order === 'asc' ? 'asc' : null]] as const as [name, value] (name)}
 						{#if value}<input type="hidden" {name} {value} />{/if}
 					{/each}
 					<label class="flex min-h-11.5 w-full items-center gap-2.5 rounded-field bg-white px-4">
@@ -148,52 +148,7 @@
 						/>
 					</label>
 				</form>
-
-				<form
-					method="get"
-					class="flex flex-wrap items-center gap-2 rounded-field bg-white px-3.5 py-1.5 {data.created.from ||
-					data.created.to
-						? 'ring-2 ring-indigo'
-						: ''}"
-					aria-label="Date de création"
-				>
-					{#each [['etat', data.filter], ['vue', data.view === 'cartes' ? 'cartes' : null], ['tri', data.sort === 'name' ? 'nom' : null], ['ordre', data.order === 'asc' ? 'asc' : null], ['q', data.search]] as const as [name, value] (name)}
-						{#if value}<input type="hidden" {name} {value} />{/if}
-					{/each}
-					<Icon name="calendar" size={18} class="text-muted" />
-					<span class="text-sm font-bold text-muted">Créée du</span>
-					<input
-						type="date"
-						name="du"
-						value={data.created.from ?? ''}
-						max={data.created.to ?? undefined}
-						aria-label="Créée à partir du"
-						class="min-h-9.5 rounded-[6px] bg-lilac px-2 text-sm"
-						onchange={(event) => goto(changed({ du: event.currentTarget.value || null, page: null }))}
-					/>
-					<span class="text-sm font-bold text-muted">au</span>
-					<input
-						type="date"
-						name="au"
-						value={data.created.to ?? ''}
-						min={data.created.from ?? undefined}
-						aria-label="Créée jusqu'au"
-						class="min-h-9.5 rounded-[6px] bg-lilac px-2 text-sm"
-						onchange={(event) => goto(changed({ au: event.currentTarget.value || null, page: null }))}
-					/>
-					{#if data.created.from || data.created.to}
-						<a
-							href={changed({ du: null, au: null, page: null })}
-							class="flex size-9.5 items-center justify-center rounded-[6px] text-muted hover:bg-haze hover:text-ink"
-							aria-label="Retirer le filtre de date"
-							title="Retirer le filtre de date"
-						>
-							<Icon name="close" size={16} />
-						</a>
-					{/if}
-				</form>
-
-				<div class="flex items-center gap-2 sm:ml-auto">
+				<div class="flex items-center gap-2">
 					<nav class="flex rounded-field bg-white p-1" aria-label="Trier par">
 						{#each SORTS as option (option.label)}
 							{@const current = data.sort === option.value}

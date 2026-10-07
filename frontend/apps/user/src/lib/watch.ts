@@ -30,10 +30,30 @@ function remembered(): string | null {
 
 export const PERIODS = [7, 30, 90] as const;
 
-/** ?periode= in days, 30 by default. */
+const PERIOD_KEY = 'yimba.periode';
+
+/** The period shown when the address names none: the choice of the settings page, else 30 days. */
+export function defaultPeriod(): number {
+	try {
+		const days = Number(localStorage.getItem(PERIOD_KEY));
+		return (PERIODS as readonly number[]).includes(days) ? days : 30;
+	} catch {
+		return 30;
+	}
+}
+
+export function rememberPeriod(days: number): void {
+	try {
+		localStorage.setItem(PERIOD_KEY, String(days));
+	} catch {
+		// storage blocked: 30 days next time
+	}
+}
+
+/** ?periode= in days, else the default period. */
 export function periodOf(url: Address): number {
 	const days = Number(url.searchParams.get('periode'));
-	return (PERIODS as readonly number[]).includes(days) ? days : 30;
+	return (PERIODS as readonly number[]).includes(days) ? days : defaultPeriod();
 }
 
 /** Start of a period of `days` UTC days, today included: the same days as the daily statistics. */

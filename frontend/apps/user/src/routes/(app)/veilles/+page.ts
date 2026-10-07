@@ -15,11 +15,6 @@ export const load: PageLoad = async ({ url, depends }) => {
 	const filter = state && state in STATES ? state : null;
 	const search = url.searchParams.get('q')?.trim() ?? '';
 	const requested = Math.max(1, Number(url.searchParams.get('page')) || 1);
-	const day = (name: string) => {
-		const value = url.searchParams.get(name) ?? '';
-		return /^\d{4}-\d{2}-\d{2}$/.test(value) ? value : null;
-	};
-	const created = { from: day('du'), to: day('au') };
 	const sort = url.searchParams.get('tri') === 'nom' ? 'name' : 'created';
 	const order = url.searchParams.get('ordre') === 'asc' ? 'asc' : 'desc';
 	const view = url.searchParams.get('vue') === 'cartes' ? 'cartes' : 'liste';
@@ -33,8 +28,6 @@ export const load: PageLoad = async ({ url, depends }) => {
 				size,
 				search: search || undefined,
 				active: filter ? STATES[filter] : undefined,
-				created_from: created.from ?? undefined,
-				created_to: created.to ?? undefined,
 				sort,
 				order
 			}),
@@ -60,7 +53,6 @@ export const load: PageLoad = async ({ url, depends }) => {
 			pages: Math.max(1, Math.ceil(page.total / size)),
 			counts: { all: all.total, actives: active.total, pause: all.total - active.total },
 			filter,
-			created,
 			sort,
 			order,
 			search,

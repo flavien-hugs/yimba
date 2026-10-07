@@ -48,6 +48,8 @@
 		}
 	]);
 
+	const settings = resolve('/(app)/parametres');
+	const onSettings = $derived(page.url.pathname.startsWith(settings));
 	const watches = resolve('/(app)/veilles');
 	// "Mes veilles" stands for everything under /veilles: the list, a watch's settings and the creation.
 	const isCurrent = (path: string) => {
@@ -172,9 +174,9 @@
 					</a>
 				{/if}
 				<a
-					href={resolve('/(app)/compte')}
+					href={resolve('/(app)/parametres')}
 					class="flex size-11 items-center justify-center rounded-full bg-indigo font-display text-[15px] font-bold text-white no-underline hover:bg-indigo-deep hover:text-white md:size-11.5 md:text-base"
-					aria-label="Mon compte ({user.full_name ?? user.email})"
+					aria-label="Paramètres ({user.full_name ?? user.email})"
 				>
 					{initials(user.full_name, user.email)}
 				</a>
@@ -212,6 +214,18 @@
 				</a>
 			{/each}
 			<hr class="mt-auto mb-3 w-full border-line" />
+			<a
+				href={settings}
+				aria-label="Paramètres"
+				title="Paramètres"
+				aria-current={onSettings ? 'page' : undefined}
+				class="flex min-h-12 items-center gap-3 rounded-field px-3.5 text-[15px] font-bold whitespace-nowrap no-underline {onSettings
+					? 'bg-indigo-soft text-indigo-deep hover:text-indigo-deep'
+					: 'text-muted hover:bg-haze hover:text-ink'}"
+			>
+				<Icon name="settings" />
+				{#if !folded}<span>Paramètres</span>{/if}
+			</a>
 			<div class="flex gap-1 {folded ? 'flex-col-reverse items-start' : 'items-center'}">
 				<button
 					type="button"
