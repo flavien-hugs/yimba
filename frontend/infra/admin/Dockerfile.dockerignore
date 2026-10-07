@@ -1,5 +1,5 @@
-# Build context of the admin image (docker build -f apps/admin/Dockerfile .).
-# Allowlist: the manifests and the lockfile, the sources of this app and of the shared packages, the nginx configuration.
+# Build context of the admin image (docker build -f infra/admin/Dockerfile .).
+# Allowlist: the manifests and the lockfile, the sources of this app and of the shared packages, and its files of infra/.
 # Nothing of the user app but its manifest (the lockfile lists it). Neither node_modules nor build output nor .env
 # reach the build: dependencies are installed from the lockfile inside the image.
 *
@@ -7,9 +7,9 @@
 !pnpm-lock.yaml
 !pnpm-workspace.yaml
 !.npmrc
-!nginx/
+!infra/security-headers.conf
 !apps/*/package.json
-!apps/admin/nginx.conf.template
+!infra/admin/nginx.conf.template
 !apps/admin/tsconfig.json
 !apps/admin/vite.config.ts
 !apps/admin/src/

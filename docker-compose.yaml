@@ -199,7 +199,7 @@ services:
         <<: *logging
         build:
             context: ./frontend
-            dockerfile: apps/user/Dockerfile
+            dockerfile: infra/user/Dockerfile
             args:
                 VITE_ADMIN_URL: "${FRONTEND_ADMIN_URL:-http://localhost:${ADMIN_PORT:-3001}/admin/}"
         image: "ghcr.io/flavien-hugs/yimba-frontend-user:${IMAGE_VERSION:-dev}"
@@ -222,7 +222,7 @@ services:
         <<: *logging
         build:
             context: ./frontend
-            dockerfile: apps/admin/Dockerfile
+            dockerfile: infra/admin/Dockerfile
             args:
                 VITE_USER_URL: "${FRONTEND_USER_URL:-http://localhost:${FRONTEND_PORT:-3000}/}"
         image: "ghcr.io/flavien-hugs/yimba-frontend-admin:${IMAGE_VERSION:-dev}"
