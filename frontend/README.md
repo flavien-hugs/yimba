@@ -20,6 +20,8 @@ Interface web de Yimba, à venir. Le framework n'est pas encore choisi ; cette p
    blanche, comme `backend/.dockerignore` (sources, manifeste et verrou du gestionnaire de paquets seulement :
    ni `node_modules`, ni `.env`).
 3. Ajouter le service `frontend` à `docker-compose.yaml` (`build: ./frontend`), lié à `127.0.0.1` comme les autres.
-4. Ajouter `.github/workflows/frontend.yaml`, déclenché seulement sur `frontend/**` (lint, tests, construction de
-   l'image), sur le modèle de `backend.yaml`.
+4. Ajouter `.github/workflows/frontend.yaml`, déclenché seulement sur `frontend/**` et sur les tags git (lint, tests,
+   construction et publication de l'image), sur le modèle de `backend.yaml` : image
+   `ghcr.io/flavien-hugs/yimba-frontend` par défaut (variable de dépôt `FRONTEND_IMAGE` pour la changer), mêmes
+   étiquettes (`main` → `latest`, `develop` → `dev`, tag git → même tag) et même connexion à GHCR.
 5. Ajouter ses commandes au `Makefile` de la racine (`$(MAKE) -C frontend ...`).

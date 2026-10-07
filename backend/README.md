@@ -222,10 +222,24 @@ le code, déjà compilés en bytecode, et tourne en utilisateur non privilégié
 le nécessaire (`.dockerignore` en liste blanche : ni `.env`, ni tests, ni `.git`).
 
 Un seul workflow, [`.github/workflows/backend.yaml`](../.github/workflows/backend.yaml), déclenché quand `backend/`,
-`analytics/` ou `docker-compose.yaml` changent :
+`analytics/` ou `docker-compose.yaml` changent, et à chaque tag git :
 
-| Job                                                                                                                         | Pull request | Push sur `main`, `preprod`, `develop` |
-| --------------------------------------------------------------------------------------------------------------------------- | ------------ | ------------------------------------- |
-| `check` : lint, architecture, tests SQLite et PostgreSQL, migrations, dbt et Pandera                                        | oui          | oui                                   |
-| `image` : construction de l'image et test de démarrage                                                                      | oui          | oui                                   |
-| `publish` : image de base et variante `-ml` poussées sur GHCR (`latest` / `preprod` / `dev`, plus une étiquette par commit) | non          | si `check` et `image` réussissent     |
+| Job | Pull request | Push sur `main`, `preprod`, `develop` ou tag |
+|---|---|---|
+| `check` : lint, architecture, tests SQLite et PostgreSQL, migrations, dbt et Pandera | oui | oui |
+| `image` : construction de l'image et test de démarrage | oui | oui |
+| `publish` : image de base et variante `-ml` poussées sur GHCR | non | si `check` et `image` réussissent |
+
+Image publiée : `ghcr.io/flavien-hugs/yimba-backend` (la variable de dépôt `BACKEND_IMAGE` la remplace), variante
+`-ml` pour le worker avec transformers.
+
+| Événement | Étiquette | Variante ML |
+|---|---|---|
+| push sur `main` | `latest` | `latest-ml` |
+| push sur `develop` | `dev` | `dev-ml` |
+| push sur `preprod` | `preprod` | `preprod-ml` |
+| tag git `v1.2.0` | `v1.2.0` | `v1.2.0-ml` |
+| chaque publication | le sha du commit | `<sha>-ml` |
+
+Connexion à GHCR : par défaut le propriétaire du dépôt et le jeton du workflow (`GITHUB_TOKEN`), sans secret à créer ;
+les secrets `GHRC_USERNAME` et `GHRC_PASSWORD` les remplacent s'ils existent.

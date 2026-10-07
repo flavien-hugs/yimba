@@ -1,8 +1,9 @@
 name: Backend
 
 # Checks, builds and publishes the backend. Runs when the backend, the analytics (they read its schema) or the stack
-# definition change. On pull requests: check and image. On a push to main, preprod or develop: the same, then the
-# image is published to GHCR, only if both succeeded.
+# definition change, and on every git tag. On pull requests: check and image. On a push to main, preprod or develop,
+# or a tag: the same, then the image is published to GHCR, only if both succeeded:
+#   main -> latest, develop -> dev, preprod -> preprod, tag v1.2.0 -> v1.2.0 (plus the commit sha, for rollbacks).
 on:
   pull_request:
     paths:
@@ -12,6 +13,8 @@ on:
       - ".github/workflows/backend.yaml"
   push:
     branches: ["main", "preprod", "develop"]
+    # Path filters do not apply to tags: every tag builds its image.
+    tags: ["*"]
     paths:
       - "backend/**"
       - "analytics/**"
@@ -25,6 +28,10 @@ concurrency:
 
 permissions:
   contents: read
+
+env:
+  # Image name, by default under the repository owner; the repository variable BACKEND_IMAGE overrides it.
+  IMAGE: ${{ vars.BACKEND_IMAGE || format('ghcr.io/{0}/yimba-backend', github.repository_owner) }}
 
 defaults:
   run:
@@ -124,8 +131,9 @@ jobs:
     needs: [check, image]
     if: github.event_name == 'push'
     runs-on: ubuntu-latest
-    environment:
-      name: ${{ (github.ref_name == 'main' && 'latest') || (github.ref_name == 'preprod' && 'preprod') || 'dev' }}
+    permissions:
+      contents: read
+      packages: write # push to GHCR with GITHUB_TOKEN when no GHRC_PASSWORD secret is set
     strategy:
       matrix:
         include:
@@ -137,23 +145,30 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Determine image tag
-        id: tag
-        run: |
-          case "${{ github.ref_name }}" in
-            main) echo "name=latest" ;;
-            preprod) echo "name=preprod" ;;
-            *) echo "name=dev" ;;
-          esac >> "$GITHUB_OUTPUT"
+      - name: Image tags and labels
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.IMAGE }}
+          flavor: |
+            latest=false
+            suffix=${{ matrix.variant }},onlatest=true
+          tags: |
+            type=raw,value=latest,enable=${{ github.ref == 'refs/heads/main' }}
+            type=raw,value=dev,enable=${{ github.ref == 'refs/heads/develop' }}
+            type=raw,value=preprod,enable=${{ github.ref == 'refs/heads/preprod' }}
+            type=ref,event=tag
+            type=sha,format=long,prefix=
 
       - uses: docker/setup-buildx-action@v3
 
-      - name: Login to Docker registry
+      - name: Login to GHCR
         uses: docker/login-action@v3
         with:
           registry: ghcr.io
-          username: ${{ secrets.GHRC_USERNAME }}
-          password: ${{ secrets.GHRC_PASSWORD }}
+          # Defaults: the repository owner and the workflow token; GHRC_USERNAME / GHRC_PASSWORD secrets override them.
+          username: ${{ secrets.GHRC_USERNAME || github.repository_owner }}
+          password: ${{ secrets.GHRC_PASSWORD || secrets.GITHUB_TOKEN }}
 
       # The base variant reuses the layers the "image" job just built (same cache scope).
       - name: Build and push
@@ -162,12 +177,7 @@ jobs:
           context: backend
           push: true
           build-args: EXTRAS=${{ matrix.extras }}
-          # A moving tag per branch, and an immutable one per commit for rollbacks.
-          tags: |
-            ${{ secrets.GHRC_REGISTRY_ADDR }}:${{ steps.tag.outputs.name }}${{ matrix.variant }}
-            ${{ secrets.GHRC_REGISTRY_ADDR }}:${{ github.sha }}${{ matrix.variant }}
-          labels: |
-            org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
-            org.opencontainers.image.revision=${{ github.sha }}
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha,scope=image${{ matrix.variant }}
           cache-to: type=gha,mode=max,scope=image${{ matrix.variant }}
