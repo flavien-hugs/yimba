@@ -4,7 +4,8 @@ import { since } from '#lib/watch.js';
 import type { PageLoad } from './$types';
 
 const DAYS = 30;
-const PAGE_SIZE = 8;
+// Cards take more room than rows: eight cards or ten rows per page.
+const PAGE_SIZES = { cartes: 8, liste: 10 } as const;
 const STATES = { actives: true, pause: false } as const;
 
 // A page of watches (?page, ?etat=actives|pause, ?q), each with its conversations of the last 30 days and its alerts.
@@ -14,13 +15,15 @@ export const load: PageLoad = async ({ url, depends }) => {
 	const filter = state && state in STATES ? state : null;
 	const search = url.searchParams.get('q')?.trim() ?? '';
 	const requested = Math.max(1, Number(url.searchParams.get('page')) || 1);
+	const view = url.searchParams.get('vue') === 'cartes' ? 'cartes' : 'liste';
+	const size = PAGE_SIZES[view];
 	const start = since(DAYS);
 
 	return fromApi(async () => {
 		const [page, all, active] = await Promise.all([
 			api.watches.list({
 				page: requested,
-				size: PAGE_SIZE,
+				size,
 				search: search || undefined,
 				active: filter ? STATES[filter] : undefined
 			}),
@@ -41,8 +44,9 @@ export const load: PageLoad = async ({ url, depends }) => {
 		);
 		return {
 			days: DAYS,
+			view,
 			page,
-			pages: Math.max(1, Math.ceil(page.total / PAGE_SIZE)),
+			pages: Math.max(1, Math.ceil(page.total / size)),
 			counts: { all: all.total, actives: active.total, pause: all.total - active.total },
 			filter,
 			search,

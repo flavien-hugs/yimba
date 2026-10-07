@@ -25,6 +25,11 @@
 		{ value: 'pause', label: 'En pause', count: () => data.counts.pause }
 	] as const;
 
+	const VIEWS = [
+		{ value: null, label: 'Liste', icon: 'list' },
+		{ value: 'cartes', label: 'Cartes', icon: 'home' }
+	] as const;
+
 	let pending = $state<string | null>(null);
 	let error = $state('');
 
@@ -95,23 +100,39 @@
 					</a>
 				{/each}
 			</nav>
-			<form
-				method="get"
-				role="search"
-				class="flex min-h-11.5 w-full items-center gap-2.5 rounded-field bg-white px-4 sm:w-80"
-			>
-				<Icon name="search" size={18} class="text-muted" />
-				<label for="watch-search" class="sr-only">Chercher une veille par son nom</label>
-				<input
-					id="watch-search"
-					name="q"
-					type="search"
-					value={data.search}
-					placeholder="Chercher une veille"
-					class="min-w-0 flex-1 bg-transparent outline-none placeholder:text-muted"
-				/>
-				{#if data.filter}<input type="hidden" name="etat" value={data.filter} />{/if}
-			</form>
+			<div class="flex w-full flex-wrap items-center gap-3 sm:w-auto">
+				<nav class="flex rounded-field bg-white p-1" aria-label="Affichage">
+					{#each VIEWS as option (option.label)}
+						{@const current = (data.view === 'cartes') === (option.value === 'cartes')}
+						<a
+							href={changed({ vue: option.value, page: null })}
+							aria-current={current ? 'true' : undefined}
+							class="flex min-h-9.5 items-center gap-2 rounded-field px-3 text-sm font-bold no-underline {current
+								? 'bg-indigo-soft text-indigo-deep'
+								: 'text-muted hover:text-ink'}"
+						>
+							<Icon name={option.icon} size={16} />{option.label}
+						</a>
+					{/each}
+				</nav>
+				<form
+					method="get"
+					role="search"
+					class="flex min-h-11.5 w-full items-center gap-2.5 rounded-field bg-white px-4 sm:w-80"
+				>
+					<Icon name="search" size={18} class="text-muted" />
+					<label for="watch-search" class="sr-only">Chercher une veille par son nom</label>
+					<input
+						id="watch-search"
+						name="q"
+						type="search"
+						value={data.search}
+						placeholder="Chercher une veille"
+						class="min-w-0 flex-1 bg-transparent outline-none placeholder:text-muted"
+					/>
+					{#if data.filter}<input type="hidden" name="etat" value={data.filter} />{/if}
+				</form>
+			</div>
 		</div>
 	{/if}
 
@@ -120,104 +141,219 @@
 	{/if}
 
 	{#if items.length}
-		<ul class="grid gap-4 xl:grid-cols-2">
-			{#each items as watch (watch.id)}
-				{@const summary = data.summaries[watch.id]}
-				{@const openAlerts = summary?.openAlerts ?? 0}
-				<li class="flex min-w-0 flex-col rounded-card bg-white">
-					<div class="flex flex-col gap-3 p-5.5 pb-4">
-						<div class="flex items-start justify-between gap-3">
-							<h2
-								class="line-clamp-2 min-w-0 text-[21px] leading-snug font-semibold [overflow-wrap:anywhere]"
+		{#if data.view === 'cartes'}
+			<ul class="grid gap-4 xl:grid-cols-2">
+				{#each items as watch (watch.id)}
+					{@const summary = data.summaries[watch.id]}
+					{@const openAlerts = summary?.openAlerts ?? 0}
+					<li class="flex min-w-0 flex-col rounded-card bg-white">
+						<div class="flex flex-col gap-3 p-5.5 pb-4">
+							<div class="flex items-start justify-between gap-3">
+								<h2
+									class="line-clamp-2 min-w-0 text-[21px] leading-snug font-semibold [overflow-wrap:anywhere]"
+								>
+									{watch.name}
+								</h2>
+								<span
+									class="tag mt-0.5 shrink-0 {watch.active
+										? 'bg-leaf-soft text-leaf-ink'
+										: 'bg-sand-soft text-sand-ink'}"
+								>
+									{watch.active ? 'Active' : 'En pause'}
+								</span>
+							</div>
+							<ul class="flex flex-wrap gap-1.5" aria-label="Mots suivis">
+								{#each watch.keywords as keyword (keyword)}
+									<li class="tag bg-indigo-soft text-indigo-deep">{keyword}</li>
+								{/each}
+							</ul>
+						</div>
+
+						<dl
+							class="mx-5.5 grid grid-cols-3 divide-x divide-rule rounded-field bg-lilac py-3 text-center tabular-nums"
+						>
+							<div class="px-2">
+								<dd class="figure text-[26px] leading-tight">
+									{summary ? formatNumber(summary.totals.total) : '—'}
+								</dd>
+								<dt class="text-[13px] text-muted">conversations, {data.days} j</dt>
+							</div>
+							<div class="px-2">
+								<dd class="figure text-[26px] leading-tight">
+									{summary?.totals.total ? formatShare(summary.totals.negative_share) : '—'}
+								</dd>
+								<dt class="text-[13px] text-muted">de négatif</dt>
+							</div>
+							<div class="px-2">
+								<dd class="figure text-[26px] leading-tight {openAlerts ? 'text-clay-ink' : ''}">
+									{formatNumber(openAlerts)}
+								</dd>
+								<dt class="text-[13px] text-muted">
+									{openAlerts > 1 ? 'alertes à traiter' : 'alerte à traiter'}
+								</dt>
+							</div>
+						</dl>
+
+						<p class="px-5.5 pt-3.5 text-sm text-muted">
+							{SOURCE_ORDER.filter((source) => watch.sources.includes(source))
+								.map((source) => SOURCES[source])
+								.join(', ')}
+							<span aria-hidden="true">·</span>
+							{frequencyLabel(watch.frequency_minutes).toLowerCase()}
+							<span aria-hidden="true">·</span>
+							alerte à {percent(watch.alert_negative_share)} % de négatif, dès {plural(
+								watch.alert_min_mentions,
+								'conversation'
+							)}
+							<span aria-hidden="true">·</span>
+							créée le {formatDate(watch.created_at)}
+						</p>
+
+						<div class="mt-auto grid grid-cols-2 gap-2 p-5.5 pt-4">
+							<a
+								href={withQuery(resolve('/(app)'), { veille: watch.id })}
+								class="btn btn-primary min-h-11 px-3 text-sm"
 							>
-								{watch.name}
-							</h2>
-							<span
-								class="tag mt-0.5 shrink-0 {watch.active
-									? 'bg-leaf-soft text-leaf-ink'
-									: 'bg-sand-soft text-sand-ink'}"
+								Tableau de bord
+							</a>
+							<a
+								href={withQuery(resolve('/(app)/paroles'), { veille: watch.id })}
+								class="btn btn-soft min-h-11 px-3 text-sm"
 							>
-								{watch.active ? 'Active' : 'En pause'}
-							</span>
+								Conversations
+							</a>
+							<a
+								href={resolve('/(app)/veilles/[id]', { id: watch.id })}
+								class="btn btn-ghost min-h-11 px-3 text-sm"
+							>
+								Réglages
+							</a>
+							<button
+								type="button"
+								class="btn btn-ghost min-h-11 px-3 text-sm"
+								disabled={pending === watch.id}
+								onclick={() => toggle(watch)}
+							>
+								{watch.active ? 'Mettre en pause' : 'Reprendre'}
+							</button>
 						</div>
-						<ul class="flex flex-wrap gap-1.5" aria-label="Mots suivis">
-							{#each watch.keywords as keyword (keyword)}
-								<li class="tag bg-indigo-soft text-indigo-deep">{keyword}</li>
-							{/each}
-						</ul>
-					</div>
+					</li>
+				{/each}
+			</ul>
+		{:else}
+			<div class="overflow-hidden rounded-card bg-white">
+				<div
+					class="hidden grid-cols-[minmax(0,1fr)_96px_150px_110px_312px] items-center gap-x-4 border-b border-rule px-5.5 py-3 text-sm font-bold text-muted lg:grid"
+					aria-hidden="true"
+				>
+					<span>Veille</span>
+					<span class="text-right">Conversations</span>
+					<span>Négatif</span>
+					<span class="text-right">Alertes</span>
+					<span class="text-right">Actions</span>
+				</div>
+				<ul class="divide-y divide-rule">
+					{#each items as watch (watch.id)}
+						{@const summary = data.summaries[watch.id]}
+						{@const openAlerts = summary?.openAlerts ?? 0}
+						{@const share = summary?.totals.total ? summary.totals.negative_share : null}
+						<li
+							class="grid gap-x-4 gap-y-3 px-5.5 py-4 lg:grid-cols-[minmax(0,1fr)_96px_150px_110px_312px] lg:items-center"
+						>
+							<div class="flex min-w-0 flex-col gap-1">
+								<div class="flex items-center gap-2.5">
+									<span
+										class="size-2.5 shrink-0 rounded-full {watch.active ? 'bg-leaf' : 'bg-sand'}"
+										aria-hidden="true"
+									></span>
+									<a
+										href={withQuery(resolve('/(app)'), { veille: watch.id })}
+										class="min-w-0 truncate text-lg font-semibold text-ink no-underline hover:text-indigo"
+										title={watch.name}>{watch.name}</a
+									>
+									<span
+										class="tag shrink-0 {watch.active
+											? 'bg-leaf-soft text-leaf-ink'
+											: 'bg-sand-soft text-sand-ink'}"
+									>
+										{watch.active ? 'Active' : 'En pause'}
+									</span>
+								</div>
+								<p class="truncate text-sm text-muted" title={watch.keywords.join(', ')}>
+									{watch.keywords.join(' · ')}
+								</p>
+								<p class="truncate text-[13px] text-muted">
+									{SOURCE_ORDER.filter((source) => watch.sources.includes(source))
+										.map((source) => SOURCES[source])
+										.join(', ')}
+									<span aria-hidden="true">·</span>
+									{frequencyLabel(watch.frequency_minutes).toLowerCase()}
+									<span aria-hidden="true">·</span>
+									alerte à {percent(watch.alert_negative_share)} %, dès {watch.alert_min_mentions}
+								</p>
+							</div>
 
-					<dl
-						class="mx-5.5 grid grid-cols-3 divide-x divide-rule rounded-field bg-lilac py-3 text-center tabular-nums"
-					>
-						<div class="px-2">
-							<dd class="figure text-[26px] leading-tight">
-								{summary ? formatNumber(summary.totals.total) : '—'}
-							</dd>
-							<dt class="text-[13px] text-muted">conversations, {data.days} j</dt>
-						</div>
-						<div class="px-2">
-							<dd class="figure text-[26px] leading-tight">
-								{summary?.totals.total ? formatShare(summary.totals.negative_share) : '—'}
-							</dd>
-							<dt class="text-[13px] text-muted">de négatif</dt>
-						</div>
-						<div class="px-2">
-							<dd class="figure text-[26px] leading-tight {openAlerts ? 'text-clay-ink' : ''}">
-								{formatNumber(openAlerts)}
-							</dd>
-							<dt class="text-[13px] text-muted">
-								{openAlerts > 1 ? 'alertes à traiter' : 'alerte à traiter'}
-							</dt>
-						</div>
-					</dl>
+							<div class="grid grid-cols-3 gap-3 tabular-nums lg:contents">
+								<div class="lg:text-right">
+									<span class="text-[13px] text-muted lg:sr-only">Conversations</span>
+									<div class="figure text-xl">{summary ? formatNumber(summary.totals.total) : '—'}</div>
+								</div>
+								<div>
+									<span class="text-[13px] text-muted lg:sr-only">Négatif</span>
+									<div class="flex items-center gap-2.5">
+										<span class="figure w-12 text-xl">{share === null ? '—' : formatShare(share)}</span>
+										<span
+											class="hidden h-2 flex-1 overflow-hidden rounded-[4px] bg-track lg:block"
+											aria-hidden="true"
+										>
+											<span class="block h-full bg-clay" style:width="{(share ?? 0) * 100}%"></span>
+										</span>
+									</div>
+								</div>
+								<div class="lg:text-right">
+									<span class="text-[13px] text-muted lg:sr-only">Alertes à traiter</span>
+									<div>
+										{#if openAlerts}
+											<a
+												href={withQuery(resolve('/(app)/alertes'), { veille: watch.id })}
+												class="tag bg-sun-soft text-sun-ink no-underline"
+											>
+												{openAlerts} à traiter
+											</a>
+										{:else}
+											<span class="text-muted">Aucune</span>
+										{/if}
+									</div>
+								</div>
+							</div>
 
-					<p class="px-5.5 pt-3.5 text-sm text-muted">
-						{SOURCE_ORDER.filter((source) => watch.sources.includes(source))
-							.map((source) => SOURCES[source])
-							.join(', ')}
-						<span aria-hidden="true">·</span>
-						{frequencyLabel(watch.frequency_minutes).toLowerCase()}
-						<span aria-hidden="true">·</span>
-						alerte à {percent(watch.alert_negative_share)} % de négatif, dès {plural(
-							watch.alert_min_mentions,
-							'conversation'
-						)}
-						<span aria-hidden="true">·</span>
-						créée le {formatDate(watch.created_at)}
-					</p>
-
-					<div class="mt-auto grid grid-cols-2 gap-2 p-5.5 pt-4">
-						<a
-							href={withQuery(resolve('/(app)'), { veille: watch.id })}
-							class="btn btn-primary min-h-11 px-3 text-sm"
-						>
-							Tableau de bord
-						</a>
-						<a
-							href={withQuery(resolve('/(app)/paroles'), { veille: watch.id })}
-							class="btn btn-soft min-h-11 px-3 text-sm"
-						>
-							Conversations
-						</a>
-						<a
-							href={resolve('/(app)/veilles/[id]', { id: watch.id })}
-							class="btn btn-ghost min-h-11 px-3 text-sm"
-						>
-							Réglages
-						</a>
-						<button
-							type="button"
-							class="btn btn-ghost min-h-11 px-3 text-sm"
-							disabled={pending === watch.id}
-							onclick={() => toggle(watch)}
-						>
-							{watch.active ? 'Mettre en pause' : 'Reprendre'}
-						</button>
-					</div>
-				</li>
-			{/each}
-		</ul>
+							<div class="grid grid-cols-3 gap-2 lg:justify-self-end">
+								<a
+									href={withQuery(resolve('/(app)/paroles'), { veille: watch.id })}
+									class="btn btn-soft min-h-10 px-3 text-sm lg:w-24"
+								>
+									Paroles
+								</a>
+								<a
+									href={resolve('/(app)/veilles/[id]', { id: watch.id })}
+									class="btn btn-ghost min-h-10 px-3 text-sm lg:w-24"
+								>
+									Réglages
+								</a>
+								<button
+									type="button"
+									class="btn btn-ghost min-h-10 px-3 text-sm lg:w-24"
+									disabled={pending === watch.id}
+									onclick={() => toggle(watch)}
+								>
+									{watch.active ? 'Pause' : 'Reprendre'}
+								</button>
+							</div>
+						</li>
+					{/each}
+				</ul>
+			</div>
+		{/if}
 
 		{#if data.pages > 1}
 			<nav class="flex flex-wrap items-center justify-between gap-3" aria-label="Pages de veilles">
