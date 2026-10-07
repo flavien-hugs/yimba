@@ -14,6 +14,9 @@ from yimba.modules.collection.domain.model import CollectedItem, CollectionTarge
 from yimba.shared.errors import ExternalServiceError
 from yimba.shared.source import SourceKind
 
+# Google News has no edition for these countries (it answers with another one) and finds a keyword in the news of the
+# whole world: naming the country keeps the results about it ("réforme électorale" alone finds India and Italy).
+COUNTRY_NAMES = {"CI": "Côte d'Ivoire"}
 GOOGLE_NEWS_SEARCH = "https://news.google.com/rss/search?q={query}&hl={lang}&gl={country}&ceid={country}:{lang}"
 _TAGS = re.compile(r"<[^>]+>")
 
@@ -70,6 +73,11 @@ def parse_rss(xml_text: str) -> list[CollectedItem]:
     return items
 
 
+def _query(keyword: str, country: str) -> str:
+    name = COUNTRY_NAMES.get(country)
+    return f'{keyword} "{name}"' if name else keyword
+
+
 class RssNewsCollector:
     """Press coverage through Google News RSS (no API key) plus any extra feeds configured by the operator."""
 
@@ -83,7 +91,7 @@ class RssNewsCollector:
         language = target.languages[0] if target.languages else "fr"
         country = (target.countries[0] if target.countries else "CI").upper()
         urls = [
-            GOOGLE_NEWS_SEARCH.format(query=quote_plus(keyword), lang=language, country=country)
+            GOOGLE_NEWS_SEARCH.format(query=quote_plus(_query(keyword, country)), lang=language, country=country)
             for keyword in target.keywords
         ] + list(self._extra_feeds)
 

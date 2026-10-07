@@ -18,6 +18,17 @@ from yimba.shared.source import SourceKind
 VENUE_MAX_LENGTH = 200
 
 
+def clean_venue(venue: str | None) -> str | None:
+    """One spelling per venue: single spaces, and a name written all in lower case ("koaci") gets its capital.
+
+    Site names ("fratmat.info") are left as they are.
+    """
+    name = " ".join((venue or "").split())[:VENUE_MAX_LENGTH]
+    if name and name == name.lower() and "." not in name and name[0].isalpha():
+        name = name[0].upper() + name[1:]
+    return name or None
+
+
 @dataclass(frozen=True, slots=True)
 class IncomingMention:
     """A publication as delivered by a collector, before normalization and analysis."""
@@ -79,7 +90,7 @@ class IngestMentions:
                 language=analysis.language,
                 sentiment=analysis.sentiment,
                 emotion=analysis.emotion,
-                venue=" ".join((item.venue or "").split())[:VENUE_MAX_LENGTH] or None,
+                venue=clean_venue(item.venue),
             )
             seen_hashes.add(fingerprint)
 

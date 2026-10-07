@@ -72,7 +72,8 @@ async def test_rss_collector_queries_google_news_per_keyword_and_filters_extra_f
     target = CollectionTarget("w1", SourceKind.NEWS, ("vaccination",), ("fr",), ("CI",))
     items = await collector.collect(target)
 
-    assert any("news.google.com/rss/search?q=vaccination&hl=fr&gl=CI" in url for url in seen)
+    # The country is part of the query: keywords alone find the news of the whole world.
+    assert any("news.google.com/rss/search?q=vaccination+%22C%C3%B4te+d%27Ivoire%22&hl=fr&gl=CI" in url for url in seen)
     extra_items = [i for i in items if i.text.startswith("Rien")]
     assert extra_items == []  # extra feeds only keep items mentioning a keyword
     assert len([i for i in items if "Vaccination" in i.text]) == 2  # one from each feed

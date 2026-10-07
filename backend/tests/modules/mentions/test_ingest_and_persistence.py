@@ -7,7 +7,13 @@ from tests.conftest import NOW
 from yimba.modules.analysis.public import SentimentLabel, build_text_analyzer
 from yimba.modules.mentions.adapters.persistence import SqlMentionRepository
 from yimba.modules.mentions.application.ports import GroupBy, MentionFilters
-from yimba.modules.mentions.application.use_cases import ComputeStats, IncomingMention, IngestMentions, SearchMentions
+from yimba.modules.mentions.application.use_cases import (
+    ComputeStats,
+    IncomingMention,
+    IngestMentions,
+    SearchMentions,
+    clean_venue,
+)
 from yimba.modules.mentions.domain.model import Metrics, anonymize_author, content_hash, storable_external_id
 from yimba.shared.pagination import PageParams
 from yimba.shared.source import SourceKind
@@ -62,6 +68,12 @@ async def test_ingest_analyzes_dedupes_and_counts(ingest, session):
     assert by_id["1"].author_ref and "awa" not in by_id["1"].author_ref
     assert by_id["1"].venue == "Fraternité Matin" and by_id["2"].venue is None
     assert by_id["2"].sentiment.label is SentimentLabel.NEGATIVE and by_id["2"].language == "fr"
+
+
+def test_a_venue_has_one_spelling():
+    assert clean_venue("koaci") == "Koaci" and clean_venue("  Koaci ") == "Koaci"
+    assert clean_venue("fratmat.info") == "fratmat.info" and clean_venue("RFI") == "RFI"
+    assert clean_venue("#vaccination") == "#vaccination" and clean_venue("  ") is None and clean_venue(None) is None
 
 
 async def test_same_item_in_two_watches_is_kept_for_each(ingest):
