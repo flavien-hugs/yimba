@@ -117,3 +117,30 @@ async def test_closed_registration(client, local_container):
 async def test_swagger_offers_bearer_authentication(client):
     schema = (await client.get("/openapi.json")).json()
     assert schema["components"]["securitySchemes"]["HTTPBearer"]["scheme"] == "bearer"
+
+
+async def test_admins_soft_delete_accounts_and_pause_their_watches(client, local_container):
+    user = await register_and_login(client, "u@example.org")
+    watch = await client.post(
+        "/watches", json={"name": "Santé", "keywords": ["vaccin"], "sources": ["news"]}, headers=bearer(user)
+    )
+    user_id = (await client.get("/auth/me", headers=bearer(user))).json()["id"]
+    async with local_container.session_factory() as session:
+        await local_container.accounts(session).register("a@example.org", PASSWORD, role=Role.ADMIN, by_admin=True)
+    admin = (await client.post("/auth/login", json={"email": "a@example.org", "password": PASSWORD})).json()
+
+    assert (await client.delete(f"/users/{user_id}", headers=bearer(user))).status_code == 403
+    assert (await client.delete(f"/users/{user_id}", headers=bearer(admin))).status_code == 204
+    assert (await client.delete(f"/users/{user_id}", headers=bearer(admin))).status_code == 404
+    assert (await client.delete("/users/missing", headers=bearer(admin))).status_code == 404
+
+    assert (await client.get("/auth/me", headers=bearer(user))).status_code == 401
+    listed = (await client.get("/users", params={"include_deleted": "true"}, headers=bearer(admin))).json()
+    deleted = next(u for u in listed["items"] if u["id"] == user_id)
+    assert deleted["deleted_at"] is not None and deleted["active"] is False
+    assert user_id not in [u["id"] for u in (await client.get("/users", headers=bearer(admin))).json()["items"]]
+
+    from yimba.modules.watches.adapters.persistence import SqlWatchRepository
+
+    async with local_container.session_factory() as session:
+        assert (await SqlWatchRepository(session).get(watch.json()["id"])).active is False

@@ -12,7 +12,14 @@ from yimba.modules.identity.public import AccountService, Principal
 from yimba.modules.mentions.adapters.persistence import SqlMentionRepository
 from yimba.modules.mentions.application.use_cases import ComputeStats, SearchMentions
 from yimba.modules.watches.adapters.persistence import SqlWatchRepository
-from yimba.modules.watches.application.use_cases import CreateWatch, DeleteWatch, GetWatch, ListWatches, UpdateWatch
+from yimba.modules.watches.application.use_cases import (
+    CreateWatch,
+    DeleteWatch,
+    GetWatch,
+    ListWatches,
+    PauseOwnerWatches,
+    UpdateWatch,
+)
 from yimba.shared.errors import Unauthorized
 
 
@@ -73,6 +80,12 @@ def update_watch(c: Container = Depends(get_container), s: AsyncSession = Depend
 
 def delete_watch(s: AsyncSession = Depends(get_session)) -> DeleteWatch:
     return DeleteWatch(SqlWatchRepository(s))
+
+
+def pause_owner_watches(
+    c: Container = Depends(get_container), s: AsyncSession = Depends(get_session)
+) -> PauseOwnerWatches:
+    return PauseOwnerWatches(SqlWatchRepository(s), c.clock)
 
 
 def search_mentions(s: AsyncSession = Depends(get_session)) -> SearchMentions:

@@ -140,7 +140,11 @@ sequenceDiagram
 - Seule l'empreinte SHA-256 des jetons de rafraîchissement est stockée ; ceux qui ont expiré sont purgés chaque jour.
 - Changer de mot de passe (`POST /auth/password`) ferme toutes les autres sessions.
 - Un admin gère les comptes (`/users`) mais pas les veilles des autres ; le dernier admin actif ne peut être ni
-  rétrogradé ni désactivé.
+  rétrogradé, ni désactivé, ni supprimé.
+- Supprimer un compte (`DELETE /users/{id}`) est une suppression logique : la ligne reste (`deleted_at`), mais le compte
+  ne peut plus se connecter, ses jetons cessent de fonctionner tout de suite et ses veilles passent en pause (elles et
+  leurs données sont gardées). L'email redevient libre pour un nouveau compte ; `GET /users?include_deleted=true`
+  liste aussi les comptes supprimés.
 - Une même réponse 401 pour un email inconnu, un mauvais mot de passe ou un compte bloqué : rien n'indique quels comptes
   existent.
 
@@ -180,6 +184,7 @@ pouvoir corriger une conversion après coup ; elles contiennent des données per
 | POST               | `/auth/password`                              | changer de mot de passe                                               |
 | GET                | `/users`                                      | lister les comptes (admin)                                            |
 | PATCH              | `/users/{id}`                                 | changer le rôle d'un compte ou le désactiver (admin)                  |
+| DELETE             | `/users/{id}`                                 | supprimer un compte, suppression logique (admin)                      |
 
 Les routes hors `/auth/register`, `/auth/login`, `/auth/refresh`, `/auth/logout` et `/@ping` exigent
 `Authorization: Bearer <jeton d'accès>` et une permission donnée par le rôle (liste dans `appdesc.yml`). Une veille

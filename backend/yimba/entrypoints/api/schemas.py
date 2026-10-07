@@ -252,6 +252,7 @@ class UserOut(BaseModel):
     active: bool
     created_at: datetime
     last_login_at: datetime | None
+    deleted_at: datetime | None
 
     @classmethod
     def of(cls, user: User) -> "UserOut":
@@ -263,6 +264,7 @@ class UserOut(BaseModel):
             active=user.active,
             created_at=user.created_at,
             last_login_at=user.last_login_at,
+            deleted_at=user.deleted_at,
         )
 
 

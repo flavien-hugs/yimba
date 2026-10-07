@@ -113,6 +113,8 @@ class User:
     failed_logins: int = 0
     locked_until: datetime | None = None
     last_login_at: datetime | None = None
+    # Soft delete: the row and its history stay, the account is gone for every other purpose.
+    deleted_at: datetime | None = None
     updated_at: datetime = field(default=None)  # type: ignore[assignment]
 
     def __post_init__(self) -> None:
@@ -167,6 +169,17 @@ class User:
             self.role = role
         if active is not None:
             self.active = active
+        self.updated_at = now
+
+    @property
+    def is_deleted(self) -> bool:
+        return self.deleted_at is not None
+
+    def delete(self, now: datetime) -> None:
+        """Soft delete: disabled, its tokens invalid at once; its email may be used by a new account."""
+        self.deleted_at = now
+        self.active = False
+        self.token_version += 1
         self.updated_at = now
 
 

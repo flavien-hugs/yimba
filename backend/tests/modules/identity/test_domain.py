@@ -68,3 +68,9 @@ def test_changing_the_password_bumps_the_token_version():
     user = User.register(email="u@example.org", password_hash="old", now=NOW)
     user.change_password("new", NOW)
     assert (user.password_hash, user.token_version) == ("new", 1)
+
+
+def test_soft_delete_disables_the_account_and_its_tokens():
+    user = User.register(email="u@example.org", password_hash="h", now=NOW)
+    user.delete(NOW)
+    assert user.is_deleted and not user.active and user.token_version == 1 and user.deleted_at == NOW

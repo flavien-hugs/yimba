@@ -96,7 +96,7 @@ class AccountService:
 
     async def profile(self, user_id: str) -> User:
         user = await self._users.get(user_id)
-        if user is None:
+        if user is None or user.is_deleted:
             raise Unauthorized("Unknown account", code="identity/invalid-token")
         return user
 
@@ -111,14 +111,33 @@ class AccountService:
         await self._users.save(user)
         await self._refresh_tokens.revoke_all_for_user(user.id, now)
 
-    async def list_users(self, params: PageParams, search: str | None = None) -> Page[User]:
-        return await self._users.list(params, search)
+    async def list_users(
+        self, params: PageParams, search: str | None = None, include_deleted: bool = False
+    ) -> Page[User]:
+        return await self._users.list(params, search, include_deleted)
 
     async def update_user(self, user_id: str, *, role: Role | None = None, active: bool | None = None) -> User:
+        return await self._update(await self._live_user(user_id), role=role, active=active)
+
+    async def delete_user(self, user_id: str) -> User:
+        """Soft delete: the account stops working at once (login, access and refresh tokens), the row stays."""
+        user = await self._live_user(user_id)
+        await self._ensure_an_admin_remains(user)
+        now = self._clock.now()
+        user.delete(now)
+        await self._users.save(user)
+        await self._refresh_tokens.revoke_all_for_user(user.id, now)
+        return user
+
+    async def _live_user(self, user_id: str) -> User:
         user = await self._users.get(user_id)
-        if user is None:
+        if user is None or user.is_deleted:
             raise NotFound(f"User {user_id} not found", code="identity/user-not-found")
-        return await self._update(user, role=role, active=active)
+        return user
+
+    async def _ensure_an_admin_remains(self, user: User) -> None:
+        if user.role is Role.ADMIN and user.active and await self._users.count_active_admins() <= 1:
+            raise Conflict("At least one active admin must remain", code="identity/last-admin")
 
     async def update_user_by_email(self, email: str, *, role: Role | None = None, active: bool | None = None) -> User:
         user = await self._users.get_by_email(normalize_email(email))
@@ -127,9 +146,8 @@ class AccountService:
         return await self._update(user, role=role, active=active)
 
     async def _update(self, user: User, *, role: Role | None, active: bool | None) -> User:
-        loses_admin = user.role is Role.ADMIN and user.active and (role not in (None, Role.ADMIN) or active is False)
-        if loses_admin and await self._users.count_active_admins() <= 1:
-            raise Conflict("At least one active admin must remain", code="identity/last-admin")
+        if role not in (None, Role.ADMIN) or active is False:
+            await self._ensure_an_admin_remains(user)
         now = self._clock.now()
         user.update(now, role=role, active=active)
         await self._users.save(user)

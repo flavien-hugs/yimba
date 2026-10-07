@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from datetime import datetime
 
-from sqlalchemy import Boolean, Integer, String, delete, func, select, update
+from sqlalchemy import Boolean, Index, Integer, String, delete, func, select, text, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 from sqlalchemy.orm import Mapped, mapped_column
@@ -15,9 +15,19 @@ from yimba.shared.pagination import Page, PageParams
 
 class UserRow(Base):
     __tablename__ = "users"
+    # One live account per email; soft-deleted rows do not block a new account with the same email.
+    __table_args__ = (
+        Index(
+            "ux_users_email_live",
+            "email",
+            unique=True,
+            postgresql_where=text("deleted_at IS NULL"),
+            sqlite_where=text("deleted_at IS NULL"),
+        ),
+    )
 
     id: Mapped[str] = mapped_column(String(32), primary_key=True)
-    email: Mapped[str] = mapped_column(String(254), unique=True)
+    email: Mapped[str] = mapped_column(String(254))
     password_hash: Mapped[str] = mapped_column(String(255))
     role: Mapped[str] = mapped_column(String(10))
     active: Mapped[bool] = mapped_column(Boolean)
@@ -26,6 +36,7 @@ class UserRow(Base):
     failed_logins: Mapped[int] = mapped_column(Integer)
     locked_until: Mapped[datetime | None] = mapped_column(UTCDateTime, nullable=True)
     last_login_at: Mapped[datetime | None] = mapped_column(UTCDateTime, nullable=True)
+    deleted_at: Mapped[datetime | None] = mapped_column(UTCDateTime, nullable=True)
     created_at: Mapped[datetime] = mapped_column(UTCDateTime)
     updated_at: Mapped[datetime] = mapped_column(UTCDateTime)
 
@@ -52,6 +63,7 @@ _USER_FIELDS = (
     "failed_logins",
     "locked_until",
     "last_login_at",
+    "deleted_at",
     "created_at",
     "updated_at",
 )
@@ -100,7 +112,7 @@ class SqlUserRepository:
         return _user(row) if row else None
 
     async def get_by_email(self, email: str) -> User | None:
-        row = await self._session.scalar(select(UserRow).where(UserRow.email == email))
+        row = await self._session.scalar(select(UserRow).where(UserRow.email == email, UserRow.deleted_at.is_(None)))
         return _user(row) if row else None
 
     async def save(self, user: User) -> None:
@@ -110,8 +122,10 @@ class SqlUserRepository:
         _apply_user(row, user)
         await self._session.commit()
 
-    async def list(self, params: PageParams, search: str | None = None) -> Page[User]:
+    async def list(self, params: PageParams, search: str | None = None, include_deleted: bool = False) -> Page[User]:
         filters = [UserRow.email.ilike(f"%{search.strip().lower()}%")] if search else []
+        if not include_deleted:
+            filters.append(UserRow.deleted_at.is_(None))
         total = await self._session.scalar(select(func.count()).select_from(UserRow).where(*filters)) or 0
         rows = await self._session.scalars(
             select(UserRow)
@@ -123,7 +137,11 @@ class SqlUserRepository:
         return Page(items=tuple(_user(row) for row in rows), total=total, page=params.page, size=params.size)
 
     async def count_active_admins(self) -> int:
-        query = select(func.count()).select_from(UserRow).where(UserRow.role == Role.ADMIN.value, UserRow.active)
+        query = (
+            select(func.count())
+            .select_from(UserRow)
+            .where(UserRow.role == Role.ADMIN.value, UserRow.active, UserRow.deleted_at.is_(None))
+        )
         return await self._session.scalar(query) or 0
 
 

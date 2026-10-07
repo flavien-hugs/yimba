@@ -3,7 +3,7 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Sequence
 
-from sqlalchemy import Boolean, Float, Integer, String, delete, func, select
+from sqlalchemy import Boolean, Float, Integer, String, delete, func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -113,3 +113,12 @@ class SqlWatchRepository:
     async def list_active(self) -> Sequence[Watch]:
         rows = await self._session.scalars(select(WatchRow).where(WatchRow.active.is_(True)))
         return tuple(_to_domain(row) for row in rows)
+
+    async def deactivate_for_owner(self, owner_id: str, now: datetime) -> int:
+        result = await self._session.execute(
+            update(WatchRow)
+            .where(WatchRow.owner_id == owner_id, WatchRow.active.is_(True))
+            .values(active=False, updated_at=now)
+        )
+        await self._session.commit()
+        return result.rowcount or 0

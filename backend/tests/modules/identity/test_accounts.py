@@ -199,3 +199,32 @@ async def test_admins_manage_accounts_but_one_admin_always_remains(accounts, acc
 
     page = await accounts().list_users(PageParams(1, 10), search="example")
     assert page.total == 2
+
+
+async def test_soft_delete(accounts, access):
+    admin = await accounts().register("a@example.org", PASSWORD, role=Role.ADMIN, by_admin=True)
+    user = await accounts().register("u@example.org", PASSWORD)
+    pair = await accounts().login("u@example.org", PASSWORD)
+
+    deleted = await accounts().delete_user(user.id)
+    assert deleted.is_deleted and not deleted.active
+
+    with pytest.raises(Unauthorized):  # access token, refresh token and login all stop at once
+        await access.authenticate(pair.access_token)
+    with pytest.raises(Unauthorized):
+        await accounts().refresh(pair.refresh_token)
+    with pytest.raises(Unauthorized):
+        await accounts().login("u@example.org", PASSWORD)
+    for action in (accounts().delete_user(user.id), accounts().update_user(user.id, active=True)):
+        with pytest.raises(NotFound):  # gone for every other purpose
+            await action
+
+    assert [u.email for u in (await accounts().list_users(PageParams(1, 10))).items] == ["a@example.org"]
+    listed = await accounts().list_users(PageParams(1, 10), include_deleted=True)
+    assert {u.email for u in listed.items} == {"a@example.org", "u@example.org"}
+
+    again = await accounts().register("u@example.org", PASSWORD)  # the email is free again
+    assert again.id != user.id
+
+    with pytest.raises(Conflict):  # the last admin cannot be deleted
+        await accounts().delete_user(admin.id)
