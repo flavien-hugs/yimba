@@ -9,11 +9,9 @@ endif
 help: ## Show this help
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-20s\033[0m %s\n", $$1, $$2}'
 
-# ---- the whole stack (docker compose) ----------------------------------------------------------------------------
-
 .PHONY: run
 run: ## Run the stack (api, worker, beat, postgres, redis); optional services: make help
-	docker compose up --build
+	docker compose up -d --build --force-recreate
 
 .PHONY: logs
 logs: ## View logs from one/all containers (s=<service>)
@@ -46,8 +44,6 @@ monitoring: ## Start Flower, the Celery web UI (http://localhost:5555)
 .PHONY: observability
 observability: ## Start GlitchTip (http://localhost:8000)
 	docker compose --profile observability up -d
-
-# ---- development (each application has its own Makefile) ---------------------------------------------------------
 
 .PHONY: install
 install: ## Install the backend dependencies
