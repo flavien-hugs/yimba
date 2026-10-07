@@ -1,7 +1,7 @@
 # Architecture
 
-Le dépôt est un mono-repo : `backend/` (ce document), `frontend/` (à venir), `analytics/`, orchestrés par le
-`docker-compose.yaml` de la racine.
+Le dépôt est un mono-repo : `backend/` (ce document), `frontend/` (interface web, voir `frontend/README.md`),
+`analytics/`, orchestrés par le `docker-compose.yaml` de la racine.
 
 Le backend suit une **architecture modulaire (monolithe modulaire) dont chaque module est hexagonal** (ports et
 adaptateurs). Une seule image Docker, lancée sous trois formes : `api`, `worker` et `beat`.

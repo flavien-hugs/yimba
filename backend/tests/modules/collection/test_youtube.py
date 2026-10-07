@@ -17,6 +17,7 @@ SEARCH = {
             "snippet": {
                 "publishedAt": "2026-10-05T08:00:00Z",
                 "channelId": "UC1",
+                "channelTitle": "Santé &amp; Vous",
                 "title": "Vaccin : l&#39;avis des m&eacute;decins",
                 "description": "Reportage",
             },
@@ -78,6 +79,8 @@ async def test_collects_videos_with_statistics_and_their_comments():
     assert (video.external_id, video.text) == ("v1", "Vaccin : l'avis des médecins. Reportage")
     assert (video.views, video.likes, video.comments, video.author_handle) == (1200, 30, 4, "UC1")
     assert video.url == "https://www.youtube.com/watch?v=v1"
+    # Where it was found: the channel, for the video and for the comments under it.
+    assert (video.venue, comment.venue, other.venue) == ("Santé & Vous", "Santé & Vous", None)
     assert video.published_at.isoformat() == "2026-10-05T08:00:00+00:00"
     assert other.external_id == "v2" and other.views == 0
     assert (comment.external_id, comment.text, comment.author_handle) == ("c1", "Merci pour ce reportage", "UCawa")

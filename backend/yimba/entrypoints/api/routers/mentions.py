@@ -5,11 +5,11 @@ from datetime import datetime
 from fastapi import APIRouter, Depends, Query
 
 from yimba.entrypoints.api import deps, permissions
-from yimba.entrypoints.api.schemas import MentionOut, PageOut, StatsOut, page_of
+from yimba.entrypoints.api.schemas import MentionOut, PageOut, PlacesOut, StatsOut, ThemesOut, page_of
 from yimba.modules.analysis.public import Emotion, SentimentLabel
 from yimba.modules.identity.public import Principal
 from yimba.modules.mentions.application.ports import GroupBy, MentionFilters
-from yimba.modules.mentions.application.use_cases import ComputeStats, SearchMentions
+from yimba.modules.mentions.application.use_cases import ComputePlaces, ComputeStats, ComputeThemes, SearchMentions
 from yimba.modules.watches.application.use_cases import GetWatch
 from yimba.shared.pagination import PageParams
 from yimba.shared.source import SourceKind
@@ -77,3 +77,35 @@ async def stats(
     await watches.execute(principal.id, watch_id)
     result = await use_case.execute(_filters(watch_id, source, language, None, None, start, end, None), group_by)
     return StatsOut.of(result)
+
+
+@router.get("/places", response_model=PlacesOut, summary="Sentiment by district of Côte d'Ivoire")
+async def places(
+    watch_id: str,
+    source: SourceKind | None = None,
+    language: str | None = None,
+    start: datetime | None = None,
+    end: datetime | None = None,
+    principal: Principal = Depends(deps.require(permissions.STATISTICS_READ)),
+    watches: GetWatch = Depends(deps.get_watch),
+    use_case: ComputePlaces = Depends(deps.compute_places),
+) -> PlacesOut:
+    await watches.execute(principal.id, watch_id)
+    return PlacesOut.of(await use_case.execute(_filters(watch_id, source, language, None, None, start, end, None)))
+
+
+@router.get("/themes", response_model=ThemesOut, summary="The words that come back the most, with their sentiment")
+async def themes(
+    watch_id: str,
+    source: SourceKind | None = None,
+    language: str | None = None,
+    start: datetime | None = None,
+    end: datetime | None = None,
+    limit: int = Query(6, ge=1, le=20),
+    principal: Principal = Depends(deps.require(permissions.STATISTICS_READ)),
+    watches: GetWatch = Depends(deps.get_watch),
+    use_case: ComputeThemes = Depends(deps.compute_themes),
+) -> ThemesOut:
+    watch = await watches.execute(principal.id, watch_id)
+    filters = _filters(watch_id, source, language, None, None, start, end, None)
+    return ThemesOut.of(await use_case.execute(filters, keywords=watch.keywords, limit=limit))

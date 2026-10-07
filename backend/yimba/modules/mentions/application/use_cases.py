@@ -1,16 +1,32 @@
 from __future__ import annotations
 
+from collections import Counter
 from dataclasses import dataclass
 from datetime import datetime
 from typing import Sequence
 
-from yimba.modules.analysis.public import TextAnalyzer
-from yimba.modules.mentions.application.ports import GroupBy, MentionFilters, MentionRepository, Stats
+from yimba.modules.analysis.public import SentimentLabel, TextAnalyzer
+from yimba.modules.mentions.application.ports import Counts, GroupBy, MentionFilters, MentionRepository, Stats
 from yimba.modules.mentions.domain.model import Mention, Metrics, anonymize_author, content_hash, storable_external_id
+from yimba.modules.mentions.domain.places import DISTRICTS, districts_in
+from yimba.modules.mentions.domain.themes import Theme, top_terms
 from yimba.shared.clock import Clock
 from yimba.shared.ids import new_id
 from yimba.shared.pagination import Page, PageParams
 from yimba.shared.source import SourceKind
+
+VENUE_MAX_LENGTH = 200
+
+
+def clean_venue(venue: str | None) -> str | None:
+    """One spelling per venue: single spaces, and a name written all in lower case ("koaci") gets its capital.
+
+    Site names ("fratmat.info") are left as they are.
+    """
+    name = " ".join((venue or "").split())[:VENUE_MAX_LENGTH]
+    if name and name == name.lower() and "." not in name and name[0].isalpha():
+        name = name[0].upper() + name[1:]
+    return name or None
 
 
 @dataclass(frozen=True, slots=True)
@@ -24,6 +40,7 @@ class IncomingMention:
     url: str | None = None
     published_at: datetime | None = None
     metrics: Metrics = Metrics()
+    venue: str | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -73,6 +90,7 @@ class IngestMentions:
                 language=analysis.language,
                 sentiment=analysis.sentiment,
                 emotion=analysis.emotion,
+                venue=clean_venue(item.venue),
             )
             seen_hashes.add(fingerprint)
 
@@ -100,3 +118,67 @@ class ComputeStats:
 
     async def execute(self, filters: MentionFilters, group_by: GroupBy = GroupBy.DAY) -> Stats:
         return await self._repository.stats(filters, group_by)
+
+
+# The analyses of the words read at most this many of the most recent conversations of the period.
+TEXT_SAMPLE = 5000
+
+
+@dataclass(frozen=True, slots=True)
+class PlaceCounts:
+    district: str
+    counts: Counts
+
+
+@dataclass(frozen=True, slots=True)
+class Places:
+    districts: Sequence[PlaceCounts]
+    located: int
+    analyzed: int
+
+
+class ComputePlaces:
+    """Where the conversations come from: those that name a district (or one of its towns), district by district."""
+
+    def __init__(self, repository: MentionRepository) -> None:
+        self._repository = repository
+
+    async def execute(self, filters: MentionFilters) -> Places:
+        rows = await self._repository.texts(filters, TEXT_SAMPLE)
+        tally = {district: Counter[SentimentLabel]() for district in DISTRICTS}
+        located = 0
+        for text, label in rows:
+            named = districts_in(text)
+            located += bool(named)
+            for district in named:
+                tally[district][label] += 1
+        districts = [
+            PlaceCounts(
+                district,
+                Counts(
+                    total=sum(count.values()),
+                    positive=count[SentimentLabel.POSITIVE],
+                    neutral=count[SentimentLabel.NEUTRAL],
+                    negative=count[SentimentLabel.NEGATIVE],
+                ),
+            )
+            for district, count in tally.items()
+        ]
+        return Places(districts, located, len(rows))
+
+
+@dataclass(frozen=True, slots=True)
+class Themes:
+    themes: Sequence[Theme]
+    analyzed: int
+
+
+class ComputeThemes:
+    """What people talk about: the words found in the most conversations, with their sentiment."""
+
+    def __init__(self, repository: MentionRepository) -> None:
+        self._repository = repository
+
+    async def execute(self, filters: MentionFilters, keywords: Sequence[str] = (), limit: int = 6) -> Themes:
+        rows = await self._repository.texts(filters, TEXT_SAMPLE)
+        return Themes(top_terms(rows, exclude=keywords, limit=limit), len(rows))

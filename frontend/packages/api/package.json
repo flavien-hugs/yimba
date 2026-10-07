@@ -1,0 +1,28 @@
+{
+	"name": "@yimba/api",
+	"private": true,
+	"type": "module",
+	"exports": {
+		".": {
+			"types": "./src/index.ts",
+			"svelte": "./src/index.ts",
+			"default": "./src/index.ts"
+		}
+	},
+	"scripts": {
+		"check": "tsc --noEmit",
+		"test": "vitest run",
+		"types": "openapi-typescript ${OPENAPI_URL:-http://localhost:8800/openapi.json} --output src/schema.d.ts"
+	},
+	"peerDependencies": {
+		"svelte": "catalog:"
+	},
+	"devDependencies": {
+		"@sveltejs/vite-plugin-svelte": "catalog:",
+		"openapi-typescript": "catalog:",
+		"svelte": "catalog:",
+		"typescript": "catalog:",
+		"vite": "catalog:",
+		"vitest": "catalog:"
+	}
+}

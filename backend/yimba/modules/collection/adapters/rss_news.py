@@ -1,11 +1,12 @@
 from __future__ import annotations
 
+import asyncio
 import html
 import re
 from datetime import datetime, timezone
 from email.utils import parsedate_to_datetime
-from typing import Sequence
-from urllib.parse import quote_plus
+from typing import Awaitable, Callable, Sequence
+from urllib.parse import quote_plus, urlparse
 
 import httpx
 from defusedxml import ElementTree
@@ -14,12 +15,21 @@ from yimba.modules.collection.domain.model import CollectedItem, CollectionTarge
 from yimba.shared.errors import ExternalServiceError
 from yimba.shared.source import SourceKind
 
+# Google News has no edition for these countries (it answers with another one) and finds a keyword in the news of the
+# whole world: naming the country keeps the results about it ("réforme électorale" alone finds India and Italy).
+COUNTRY_NAMES = {"CI": "Côte d'Ivoire"}
 GOOGLE_NEWS_SEARCH = "https://news.google.com/rss/search?q={query}&hl={lang}&gl={country}&ceid={country}:{lang}"
 _TAGS = re.compile(r"<[^>]+>")
 
 
 def _clean(value: str | None) -> str:
     return " ".join(html.unescape(_TAGS.sub(" ", value or "")).split())
+
+
+def _site_of(link: str) -> str | None:
+    """The site of an article link; Google News links only point at Google, which says nothing about the article."""
+    host = (urlparse(link).hostname or "").removeprefix("www.")
+    return None if not host or host.endswith("google.com") else host
 
 
 def parse_rss(xml_text: str) -> list[CollectedItem]:
@@ -55,6 +65,7 @@ def parse_rss(xml_text: str) -> list[CollectedItem]:
                 external_id=guid,
                 text=text,
                 author_handle=publisher or None,
+                venue=publisher or _site_of(link),
                 url=link or None,
                 published_at=published,
                 raw={child.tag: (child.text or "").strip() for child in node},
@@ -63,31 +74,64 @@ def parse_rss(xml_text: str) -> list[CollectedItem]:
     return items
 
 
+def _query(keyword: str, country: str) -> str:
+    name = COUNTRY_NAMES.get(country)
+    return f'{keyword} "{name}"' if name else keyword
+
+
 class RssNewsCollector:
     """Press coverage through Google News RSS (no API key) plus any extra feeds configured by the operator."""
 
     source = SourceKind.NEWS
 
-    def __init__(self, client: httpx.AsyncClient, extra_feeds: Sequence[str] = ()) -> None:
+    def __init__(
+        self,
+        client: httpx.AsyncClient,
+        extra_feeds: Sequence[str] = (),
+        retries: int = 2,
+        sleep: Callable[[float], Awaitable[None]] = asyncio.sleep,
+    ) -> None:
         self._client = client
         self._extra_feeds = tuple(extra_feeds)
+        self._retries = retries
+        self._sleep = sleep
+
+    async def _read(self, url: str) -> httpx.Response:
+        """The feed, trying again a couple of times when the network hiccups (connection or read timeouts)."""
+        for attempt in range(self._retries + 1):
+            try:
+                response = await self._client.get(url, timeout=20.0, follow_redirects=True)
+                response.raise_for_status()
+                return response
+            except httpx.TransportError as exc:
+                if attempt < self._retries:
+                    await self._sleep(2.0 * (attempt + 1))
+                    continue
+                raise self._unreachable(url, exc) from exc
+            except httpx.HTTPError as exc:
+                raise self._unreachable(url, exc) from exc
+        raise AssertionError("unreachable")  # pragma: no cover
+
+    @staticmethod
+    def _unreachable(url: str, exc: httpx.HTTPError) -> ExternalServiceError:
+        # Timeouts have an empty message: the type of the error is what tells them apart.
+        return ExternalServiceError(
+            f"Cannot read feed {url} ({type(exc).__name__}: {exc})".replace(": )", ")"),
+            code="collection/rss-unreachable",
+        )
 
     async def collect(self, target: CollectionTarget) -> Sequence[CollectedItem]:
         language = target.languages[0] if target.languages else "fr"
         country = (target.countries[0] if target.countries else "CI").upper()
         urls = [
-            GOOGLE_NEWS_SEARCH.format(query=quote_plus(keyword), lang=language, country=country)
+            GOOGLE_NEWS_SEARCH.format(query=quote_plus(_query(keyword, country)), lang=language, country=country)
             for keyword in target.keywords
         ] + list(self._extra_feeds)
 
         keywords = [keyword.lower() for keyword in target.keywords]
         collected: list[CollectedItem] = []
         for url in urls:
-            try:
-                response = await self._client.get(url, timeout=20.0, follow_redirects=True)
-                response.raise_for_status()
-            except httpx.HTTPError as exc:
-                raise ExternalServiceError(f"Cannot read feed {url}: {exc}", code="collection/rss-unreachable") from exc
+            response = await self._read(url)
             for item in parse_rss(response.text):
                 # Extra feeds are not keyword searches: keep only what mentions a keyword.
                 if url in self._extra_feeds and not any(k in item.text.lower() for k in keywords):

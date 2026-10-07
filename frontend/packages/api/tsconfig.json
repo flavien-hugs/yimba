@@ -1,0 +1,15 @@
+{
+	"compilerOptions": {
+		"target": "es2023",
+		"module": "esnext",
+		"moduleResolution": "bundler",
+		"lib": ["es2023", "dom", "dom.iterable"],
+		"types": ["svelte"],
+		"strict": true,
+		"noEmit": true,
+		"isolatedModules": true,
+		"verbatimModuleSyntax": true,
+		"skipLibCheck": true
+	},
+	"include": ["src", "vitest.config.ts"]
+}

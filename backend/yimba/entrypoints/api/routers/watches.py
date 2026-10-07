@@ -1,10 +1,13 @@
 from __future__ import annotations
 
+from datetime import date, datetime, timedelta, timezone
+
 from fastapi import APIRouter, Depends, Query, Response, status
 
 from yimba.entrypoints.api import deps, permissions
 from yimba.entrypoints.api.schemas import PageOut, WatchCreate, WatchOut, WatchUpdate, page_of
 from yimba.modules.identity.public import Principal
+from yimba.modules.watches.application.ports import WatchFilters, WatchSort
 from yimba.modules.watches.application.use_cases import (
     CreateWatch,
     CreateWatchCommand,
@@ -14,9 +17,13 @@ from yimba.modules.watches.application.use_cases import (
     UpdateWatch,
     UpdateWatchCommand,
 )
-from yimba.shared.pagination import PageParams
+from yimba.shared.pagination import PageParams, SortOrder
 
 router = APIRouter(prefix="/watches", tags=["Watches"])
+
+
+def _day_start(day: date) -> datetime:
+    return datetime(day.year, day.month, day.day, tzinfo=timezone.utc)
 
 
 @router.post("", response_model=WatchOut, status_code=status.HTTP_201_CREATED, summary="Create a watch")
@@ -46,10 +53,23 @@ async def list_all(
     page: int = Query(1, ge=1),
     size: int = Query(20, ge=1, le=100),
     search: str | None = Query(None, description="Filter by name"),
+    active: bool | None = Query(None, description="Only the active watches (true) or the paused ones (false)"),
+    created_from: date | None = Query(None, description="Created on or after this day"),
+    created_to: date | None = Query(None, description="Created on or before this day"),
+    sort: WatchSort = Query(WatchSort.CREATED, description="Sort by creation date or by name"),
+    order: SortOrder = Query(SortOrder.DESC, description="Direction of the sort"),
     principal: Principal = Depends(deps.require(permissions.WATCH_READ)),
     use_case: ListWatches = Depends(deps.list_watches),
 ):
-    result = await use_case.execute(principal.id, PageParams(page, size), search)
+    filters = WatchFilters(
+        search=search,
+        active=active,
+        created_from=_day_start(created_from) if created_from else None,
+        created_to=_day_start(created_to) + timedelta(days=1) if created_to else None,
+        sort=sort,
+        descending=order is SortOrder.DESC,
+    )
+    result = await use_case.execute(principal.id, PageParams(page, size), filters)
     return page_of(result, WatchOut.of)
 
 

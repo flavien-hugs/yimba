@@ -23,6 +23,7 @@ class MentionsItemSink:
                 url=item.url,
                 published_at=item.published_at,
                 metrics=Metrics(item.likes, item.shares, item.views, item.comments),
+                venue=item.venue,
             )
             for item in items
         ]

@@ -43,6 +43,7 @@ class MentionRow(Base):
     sentiment_negative: Mapped[float] = mapped_column(Float)
     sentiment_label: Mapped[str] = mapped_column(String(10), index=True)
     emotion: Mapped[str | None] = mapped_column(String(10), nullable=True)
+    venue: Mapped[str | None] = mapped_column(String(200), nullable=True)
 
 
 def _row(mention: Mention) -> MentionRow:
@@ -67,6 +68,7 @@ def _row(mention: Mention) -> MentionRow:
         sentiment_negative=mention.sentiment.negative,
         sentiment_label=mention.sentiment.label.value,
         emotion=mention.emotion.value if mention.emotion else None,
+        venue=mention.venue,
     )
 
 
@@ -87,6 +89,7 @@ def _to_domain(row: MentionRow) -> Mention:
         language=row.language,
         sentiment=Sentiment(positive=pos, neutral=max(0.0, 1.0 - pos - neg), negative=neg),
         emotion=Emotion(row.emotion) if row.emotion else None,
+        venue=row.venue,
     )
 
 
@@ -186,6 +189,15 @@ class SqlMentionRepository:
         if self._session.bind.dialect.name == "sqlite":
             return func.strftime("%Y-%m-%d", MentionRow.published_at)
         return func.to_char(func.timezone("UTC", MentionRow.published_at), "YYYY-MM-DD")
+
+    async def texts(self, filters: MentionFilters, limit: int) -> Sequence[tuple[str, SentimentLabel]]:
+        rows = await self._session.execute(
+            select(MentionRow.text, MentionRow.sentiment_label)
+            .where(*_where(filters))
+            .order_by(MentionRow.published_at.desc(), MentionRow.id)
+            .limit(limit)
+        )
+        return [(text, SentimentLabel(label)) for text, label in rows]
 
     async def stats(self, filters: MentionFilters, group_by: GroupBy) -> Stats:
         clauses = _where(filters)

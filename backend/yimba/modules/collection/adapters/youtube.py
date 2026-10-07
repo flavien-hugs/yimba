@@ -51,11 +51,12 @@ def _video_item(video: Mapping[str, Any], statistics: Mapping[str, Any]) -> Coll
         likes=as_int(statistics.get("likeCount")),
         views=as_int(statistics.get("viewCount")),
         comments=as_int(statistics.get("commentCount")),
+        venue=html.unescape(as_text(snippet.get("channelTitle"))) or None,
         raw={"video": dict(video), "statistics": dict(statistics)},
     )
 
 
-def _comment_item(video_id: str, thread: Mapping[str, Any]) -> CollectedItem:
+def _comment_item(video_id: str, thread: Mapping[str, Any], venue: str | None = None) -> CollectedItem:
     comment = (thread.get("snippet") or {}).get("topLevelComment") or {}
     snippet = comment.get("snippet") or {}
     comment_id = as_text(comment.get("id"))
@@ -70,6 +71,7 @@ def _comment_item(video_id: str, thread: Mapping[str, Any]) -> CollectedItem:
         published_at=iso_datetime(snippet.get("publishedAt")),
         likes=as_int(snippet.get("likeCount")),
         comments=as_int((thread.get("snippet") or {}).get("totalReplyCount")),
+        venue=venue,
         raw=dict(thread),
     )
 
@@ -109,11 +111,12 @@ class YouTubeCollector:
         statistics = {item.get("id"): item.get("statistics") or {} for item in listed.get("items") or []}
 
         items = [_video_item(video, statistics.get(video["id"]["videoId"], {})) for video in videos]
+        channels = {item.external_id: item.venue for item in items}
         for video_id in video_ids[: self._comment_videos]:
-            items.extend(await self._comments(video_id, target.limit))
+            items.extend(await self._comments(video_id, target.limit, channels.get(video_id)))
         return items
 
-    async def _comments(self, video_id: str, limit: int) -> list[CollectedItem]:
+    async def _comments(self, video_id: str, limit: int, venue: str | None = None) -> list[CollectedItem]:
         params = {
             "part": "snippet",
             "videoId": video_id,
@@ -127,7 +130,7 @@ class YouTubeCollector:
             if exc.reason in _UNREADABLE_COMMENTS:
                 return []
             raise
-        return [_comment_item(video_id, thread) for thread in payload.get("items") or []]
+        return [_comment_item(video_id, thread, venue) for thread in payload.get("items") or []]
 
     async def _get(self, resource: str, params: dict[str, Any]) -> dict[str, Any]:
         try:

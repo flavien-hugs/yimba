@@ -81,7 +81,7 @@ async def test_facebook_keeps_posts_mentioning_a_keyword_with_their_comments():
     seen = []
     graph = graph_for(
         {
-            "100": (200, {"access_token": "page-token", "id": "100"}),
+            "100": (200, {"access_token": "page-token", "id": "100", "name": "Santé Info CI"}),
             "100/posts": (200, POSTS),
             "100_1/comments": (200, COMMENTS),
         },
@@ -94,6 +94,8 @@ async def test_facebook_keeps_posts_mentioning_a_keyword_with_their_comments():
     assert post.published_at.isoformat() == "2026-10-05T08:00:00+00:00" and post.raw["id"] == "100_1"
     assert (first.external_id, first.text, first.author_handle, first.likes) == ("1_c1", "Enfin !", "u42", 5)
     assert first.url == "https://www.facebook.com/100/posts/1"  # falls back to the post link
+    # Where it was found: the Page, for its posts and for the comments under them.
+    assert (post.venue, first.venue, second.venue) == ("Santé Info CI",) * 3
     assert second.external_id.startswith("100_1:") and second.author_handle is None
     # The derived id is stable from one collection to the next.
     assert (
@@ -102,7 +104,7 @@ async def test_facebook_keeps_posts_mentioning_a_keyword_with_their_comments():
     )
 
     # A managed Page is read with its own Page token.
-    assert seen[0].url.params["fields"] == "access_token" and seen[0].url.params["access_token"] == "main-token"
+    assert seen[0].url.params["fields"] == "access_token,name" and seen[0].url.params["access_token"] == "main-token"
     assert {r.url.params["access_token"] for r in seen[1:]} == {"page-token"}
     assert seen[2].url.params["filter"] == "toplevel"
 
@@ -128,6 +130,7 @@ async def test_instagram_searches_each_hashtag_once():
 
     assert (item.source, item.external_id, item.text) == (SourceKind.INSTAGRAM, "m1", "#vaccination au centre de santé")
     assert (item.likes, item.comments, item.author_handle) == (12, 1, None)
+    assert item.venue == "#vaccination"  # where it was found: the hashtag
     assert item.url == "https://www.instagram.com/p/abc/"
     search, media = seen
     assert dict(search.url.params) | {"access_token": "-"} == {

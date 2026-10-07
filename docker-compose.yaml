@@ -10,11 +10,15 @@ x-logging: &logging
             max-size: "10m"
             max-file: "3"
 
+# restart: if PostgreSQL or Redis is recreated (new image or configuration), the services that use them restart too,
+# instead of logging connection errors until they reconnect.
 x-infra: &infra
     postgres:
         condition: service_healthy
+        restart: true
     redis:
         condition: service_healthy
+        restart: true
 
 # Settings passed to the backend containers. A name without a value takes it from .env (or the shell) and is left
 # out when unset, so the default of backend/yimba/config.py applies. Keep in sync with Settings
@@ -188,6 +192,54 @@ services:
         deploy:
             resources:
                 limits: {memory: 128m, cpus: "0.5"}
+
+    # ---- web interface: one image per app, each forwarding /api to the api service ------------------------------
+    # The user app on http://localhost:${FRONTEND_PORT}, the administration on http://localhost:${ADMIN_PORT}/admin.
+    frontend:
+        <<: *logging
+        build:
+            context: ./frontend
+            dockerfile: infra/user/Dockerfile
+            args:
+                VITE_ADMIN_URL: "${FRONTEND_ADMIN_URL:-http://localhost:${ADMIN_PORT:-3001}/admin/}"
+        image: "ghcr.io/flavien-hugs/yimba-frontend-user:${IMAGE_VERSION:-dev}"
+        restart: unless-stopped
+        depends_on:
+            api:
+                condition: service_started
+        environment:
+            API_UPSTREAM: "api:8800"
+        ports:
+            - "127.0.0.1:${FRONTEND_PORT:-3000}:8080"
+        healthcheck:
+            <<: *healthcheck-timing
+            test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:8080/healthz"]
+        deploy:
+            resources:
+                limits: {memory: 32m, cpus: "0.5"}
+
+    admin:
+        <<: *logging
+        build:
+            context: ./frontend
+            dockerfile: infra/admin/Dockerfile
+            args:
+                VITE_USER_URL: "${FRONTEND_USER_URL:-http://localhost:${FRONTEND_PORT:-3000}/}"
+        image: "ghcr.io/flavien-hugs/yimba-frontend-admin:${IMAGE_VERSION:-dev}"
+        restart: unless-stopped
+        depends_on:
+            api:
+                condition: service_started
+        environment:
+            API_UPSTREAM: "api:8800"
+        ports:
+            - "127.0.0.1:${ADMIN_PORT:-3001}:8080"
+        healthcheck:
+            <<: *healthcheck-timing
+            test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:8080/healthz"]
+        deploy:
+            resources:
+                limits: {memory: 32m, cpus: "0.5"}
 
     # ---- task monitoring (optional): docker compose --profile monitoring up -d -------------------------------
     # Flower, the Celery web UI (workers, queue, tasks). Bound to localhost; set FLOWER_BASIC_AUTH.
