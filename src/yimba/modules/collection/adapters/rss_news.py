@@ -33,7 +33,13 @@ def parse_rss(xml_text: str) -> list[CollectedItem]:
         link = (node.findtext("link") or "").strip()
         guid = (node.findtext("guid") or link).strip()
         title, description = _clean(node.findtext("title")), _clean(node.findtext("description"))
-        text = title if not description or description in title else f"{title}. {description}"
+        publisher = _clean(node.findtext("source"))
+        # Google News titles end with " - <publisher>" and its descriptions only repeat the title: keep the title,
+        # otherwise every word (sentiment cues included) would be counted twice.
+        if publisher and title.endswith(f" - {publisher}"):
+            title = title[: -len(publisher) - 3]
+        repeats_title = not description or description in title or description.startswith(title)
+        text = title if repeats_title else f"{title}. {description}"
         published: datetime | None = None
         raw_date = node.findtext("pubDate")
         if raw_date:
@@ -48,7 +54,7 @@ def parse_rss(xml_text: str) -> list[CollectedItem]:
                 source=SourceKind.NEWS,
                 external_id=guid,
                 text=text,
-                author_handle=_clean(node.findtext("source")) or None,
+                author_handle=publisher or None,
                 url=link or None,
                 published_at=published,
                 raw={child.tag: (child.text or "").strip() for child in node},

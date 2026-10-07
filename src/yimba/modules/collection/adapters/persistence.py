@@ -5,6 +5,7 @@ from typing import Sequence
 
 from sqlalchemy import Integer, String, Text, UniqueConstraint, delete, select
 from sqlalchemy.dialects import postgresql, sqlite
+from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -106,18 +107,23 @@ class SqlRawArchive:
         }
         values = list(rows.values())
         insert = postgresql.insert if self._session.bind.dialect.name == "postgresql" else sqlite.insert
-        for start in range(0, len(values), _UPSERT_BATCH):
-            statement = insert(RawItemRow).values(values[start : start + _UPSERT_BATCH])
-            statement = statement.on_conflict_do_update(
-                index_elements=["source", "external_id"],
-                set_={
-                    "payload": statement.excluded.payload,
-                    "last_seen_at": statement.excluded.last_seen_at,
-                    "last_run_id": statement.excluded.last_run_id,
-                },
-            )
-            await self._session.execute(statement)
-        await self._session.commit()
+        try:
+            for start in range(0, len(values), _UPSERT_BATCH):
+                statement = insert(RawItemRow).values(values[start : start + _UPSERT_BATCH])
+                statement = statement.on_conflict_do_update(
+                    index_elements=["source", "external_id"],
+                    set_={
+                        "payload": statement.excluded.payload,
+                        "last_seen_at": statement.excluded.last_seen_at,
+                        "last_run_id": statement.excluded.last_run_id,
+                    },
+                )
+                await self._session.execute(statement)
+            await self._session.commit()
+        except SQLAlchemyError:
+            # Leave the session usable: the caller still has to record the failed run.
+            await self._session.rollback()
+            raise
         return len(values)
 
     async def purge(self, not_seen_since: datetime) -> int:

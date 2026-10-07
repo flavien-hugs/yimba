@@ -25,6 +25,16 @@ def test_parse_rss():
     assert second.external_id == "https://news.example/b" and second.published_at is None
 
 
+def test_google_news_items_keep_the_title_once():
+    feed = """<rss><channel><item>
+    <title>Abidjan : coupure d'électricité à Cocody - Abidjan.net News</title><guid>g1</guid>
+    <description>&lt;a href="https://news.google.com/x"&gt;Abidjan : coupure d'électricité à Cocody&lt;/a&gt;
+    &amp;nbsp;&amp;nbsp;&lt;font color="#6f6f6f"&gt;Abidjan.net News&lt;/font&gt;</description>
+    <source url="https://news.abidjan.net">Abidjan.net News</source></item></channel></rss>"""
+    (item,) = parse_rss(feed)
+    assert item.text == "Abidjan : coupure d'électricité à Cocody" and item.author_handle == "Abidjan.net News"
+
+
 def test_parse_rss_rejects_invalid_xml_and_entity_bombs():
     with pytest.raises(ExternalServiceError):
         parse_rss("<rss><oops>")

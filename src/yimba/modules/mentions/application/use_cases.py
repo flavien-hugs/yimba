@@ -6,7 +6,7 @@ from typing import Sequence
 
 from yimba.modules.analysis.public import TextAnalyzer
 from yimba.modules.mentions.application.ports import GroupBy, MentionFilters, MentionRepository, Stats
-from yimba.modules.mentions.domain.model import Mention, Metrics, anonymize_author, content_hash
+from yimba.modules.mentions.domain.model import Mention, Metrics, anonymize_author, content_hash, storable_external_id
 from yimba.shared.clock import Clock
 from yimba.shared.ids import new_id
 from yimba.shared.pagination import Page, PageParams
@@ -53,7 +53,8 @@ class IngestMentions:
                 skipped += 1
                 continue
             fingerprint = content_hash(text)
-            key = (item.source.value, item.external_id)
+            external_id = storable_external_id(item.external_id)
+            key = (item.source.value, external_id)
             if key in prepared or fingerprint in seen_hashes:
                 continue
             analysis = self._analyzer.analyze(text)
@@ -61,7 +62,7 @@ class IngestMentions:
                 id=new_id(),
                 watch_id=watch_id,
                 source=item.source,
-                external_id=item.external_id,
+                external_id=external_id,
                 text=text,
                 content_hash=fingerprint,
                 author_ref=anonymize_author(item.author_handle, self._salt),

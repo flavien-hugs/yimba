@@ -1,13 +1,14 @@
 from datetime import timedelta
 
 import pytest
+from sqlalchemy.exc import OperationalError
 
 from tests.conftest import NOW
 from yimba.modules.analysis.public import SentimentLabel, build_text_analyzer
 from yimba.modules.mentions.adapters.persistence import SqlMentionRepository
 from yimba.modules.mentions.application.ports import GroupBy, MentionFilters
 from yimba.modules.mentions.application.use_cases import ComputeStats, IncomingMention, IngestMentions, SearchMentions
-from yimba.modules.mentions.domain.model import Metrics, anonymize_author, content_hash
+from yimba.modules.mentions.domain.model import Metrics, anonymize_author, content_hash, storable_external_id
 from yimba.shared.pagination import PageParams
 from yimba.shared.source import SourceKind
 
@@ -108,3 +109,42 @@ async def test_stats_totals_buckets_and_emotions(ingest, session):
 
     empty = await stats.execute(MentionFilters("nobody"), GroupBy.DAY)
     assert empty.totals.total == 0 and empty.totals.negative_share == 0.0 and empty.buckets == ()
+
+
+def test_long_ids_are_stored_as_a_digest():
+    long_id = "CBMi" + "x" * 400
+    assert storable_external_id("short") == "short"
+    assert storable_external_id(long_id).startswith("sha256:") and len(storable_external_id(long_id)) == 71
+    assert storable_external_id(long_id) == storable_external_id(long_id)
+
+
+async def test_long_ids_are_ingested_and_still_deduplicated(ingest):
+    long_id = "https://news.google.com/rss/articles/" + "x" * 400
+    assert (await ingest.execute("w1", [item(long_id, "Article de presse", source=SourceKind.NEWS)])).stored == 1
+    again = await ingest.execute("w1", [item(long_id, "Article de presse modifié", source=SourceKind.NEWS)])
+    assert (again.stored, again.duplicates) == (0, 1)
+
+
+async def test_a_database_error_leaves_the_session_usable(session, monkeypatch):
+    repository = SqlMentionRepository(session)
+    rolled_back = []
+    real_rollback = session.rollback
+
+    async def failing_commit():
+        raise OperationalError("insert", {}, Exception("connection lost"))
+
+    async def rollback():
+        rolled_back.append(True)
+        await real_rollback()
+
+    monkeypatch.setattr(session, "commit", failing_commit)
+    monkeypatch.setattr(session, "rollback", rollback)
+    ingest = IngestMentions(repository, build_text_analyzer("lexicon"), FixedNow(), author_salt="s")
+    with pytest.raises(OperationalError):
+        await ingest.execute("w1", [item("1", "Bravo")])
+    assert rolled_back == [True]
+
+
+class FixedNow:
+    def now(self):
+        return NOW

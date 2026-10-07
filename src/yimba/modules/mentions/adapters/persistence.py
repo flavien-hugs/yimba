@@ -4,7 +4,7 @@ from datetime import datetime
 from typing import Sequence
 
 from sqlalchemy import Float, Integer, String, Text, UniqueConstraint, case, func, or_, select
-from sqlalchemy.exc import IntegrityError
+from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -145,16 +145,20 @@ class SqlMentionRepository:
         except IntegrityError:
             # A concurrent collector inserted the same item between our check and our insert.
             await self._session.rollback()
-            stored = 0
-            for mention in fresh:
-                try:
-                    async with self._session.begin_nested():
-                        self._session.add(_row(mention))
-                    stored += 1
-                except IntegrityError:
-                    continue
-            await self._session.commit()
-            return stored
+        except SQLAlchemyError:
+            # Leave the session usable: the caller still has to record the failed run.
+            await self._session.rollback()
+            raise
+        stored = 0
+        for mention in fresh:
+            try:
+                async with self._session.begin_nested():
+                    self._session.add(_row(mention))
+                stored += 1
+            except IntegrityError:
+                continue
+        await self._session.commit()
+        return stored
 
     async def search(self, filters: MentionFilters, params: PageParams) -> Page[Mention]:
         clauses = _where(filters)

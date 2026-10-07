@@ -9,7 +9,7 @@ ENV PYTHONUNBUFFERED=1 \
 
 FROM base AS builder
 
-ARG POETRY_VERSION=2.1.3
+ARG POETRY_VERSION=2.3.4
 # Set to "ml" to bake the transformers sentiment model dependencies into the image.
 ARG EXTRAS=""
 

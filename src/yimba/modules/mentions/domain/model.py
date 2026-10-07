@@ -26,6 +26,16 @@ def content_hash(text: str) -> str:
     return hashlib.sha256(normalized.encode("utf-8")).hexdigest()
 
 
+MAX_EXTERNAL_ID_LENGTH = 255
+
+
+def storable_external_id(external_id: str) -> str:
+    """Some ids are long URLs (Google News guids): beyond the column size they are stored as a digest."""
+    if len(external_id) <= MAX_EXTERNAL_ID_LENGTH:
+        return external_id
+    return "sha256:" + hashlib.sha256(external_id.encode("utf-8")).hexdigest()
+
+
 def anonymize_author(handle: str | None, salt: str) -> str | None:
     """Authors are stored as a salted hash: enough to count distinct voices, not to identify them."""
     if not handle:

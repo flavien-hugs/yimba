@@ -37,7 +37,8 @@ def beat() -> None:
     """Run the scheduler that plans collections every minute."""
     from yimba.entrypoints.worker.app import celery
 
-    celery.start(["beat", "--loglevel=INFO"])
+    # The schedule state file must live somewhere writable: the image's /app belongs to root.
+    celery.start(["beat", "--loglevel=INFO", "--schedule=/tmp/celerybeat-schedule"])
 
 
 @app.command()
