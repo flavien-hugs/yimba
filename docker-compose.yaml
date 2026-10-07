@@ -193,11 +193,16 @@ services:
             resources:
                 limits: {memory: 128m, cpus: "0.5"}
 
-    # ---- web interface: the user app on /, the administration on /admin, /api forwarded to the api service -----
+    # ---- web interface: one image per app, each forwarding /api to the api service ------------------------------
+    # The user app on http://localhost:${FRONTEND_PORT}, the administration on http://localhost:${ADMIN_PORT}/admin.
     frontend:
         <<: *logging
-        build: ./frontend
-        image: "ghcr.io/flavien-hugs/yimba-frontend:${IMAGE_VERSION:-dev}"
+        build:
+            context: ./frontend
+            target: user
+            args:
+                VITE_ADMIN_URL: "${FRONTEND_ADMIN_URL:-http://localhost:${ADMIN_PORT:-3001}/admin/}"
+        image: "ghcr.io/flavien-hugs/yimba-frontend-user:${IMAGE_VERSION:-dev}"
         restart: unless-stopped
         depends_on:
             api:
@@ -206,6 +211,29 @@ services:
             API_UPSTREAM: "api:8800"
         ports:
             - "127.0.0.1:${FRONTEND_PORT:-3000}:8080"
+        healthcheck:
+            <<: *healthcheck-timing
+            test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:8080/healthz"]
+        deploy:
+            resources:
+                limits: {memory: 32m, cpus: "0.5"}
+
+    admin:
+        <<: *logging
+        build:
+            context: ./frontend
+            target: admin
+            args:
+                VITE_USER_URL: "${FRONTEND_USER_URL:-http://localhost:${FRONTEND_PORT:-3000}/}"
+        image: "ghcr.io/flavien-hugs/yimba-frontend-admin:${IMAGE_VERSION:-dev}"
+        restart: unless-stopped
+        depends_on:
+            api:
+                condition: service_started
+        environment:
+            API_UPSTREAM: "api:8800"
+        ports:
+            - "127.0.0.1:${ADMIN_PORT:-3001}:8080"
         healthcheck:
             <<: *healthcheck-timing
             test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:8080/healthz"]

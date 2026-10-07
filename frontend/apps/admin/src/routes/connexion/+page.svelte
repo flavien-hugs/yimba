@@ -3,6 +3,9 @@
 	import { ApiError, session, type User } from '@yimba/api';
 	import { AuthShell, LoginForm } from '@yimba/ui';
 
+	// Where the user app is: the same site by default, another address when it has an image of its own.
+	const USER_URL: string = import.meta.env.VITE_USER_URL || '/';
+
 	let { data } = $props();
 
 	async function enter(user: User) {
@@ -31,6 +34,6 @@
 	</div>
 	<LoginForm onSuccess={enter} />
 	<p class="text-center text-ink-soft">
-		<a href="/" class="font-bold" data-sveltekit-reload>Aller sur Yimba</a>
+		<a href={USER_URL} class="font-bold" data-sveltekit-reload>Aller sur Yimba</a>
 	</p>
 </AuthShell>

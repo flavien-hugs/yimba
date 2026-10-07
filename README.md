@@ -53,14 +53,14 @@ make run          # ou : docker compose up -d --build
 
 La migration de la base s'applique d'abord, puis l'API, le worker, beat et l'interface web démarrent :
 
-- l'interface web : `http://localhost:3000` (`FRONTEND_PORT`), l'administration sur `http://localhost:3000/admin` ;
+- l'interface web : `http://localhost:3000` (`FRONTEND_PORT`), l'administration, dans son image, sur `http://localhost:3001/admin` (`ADMIN_PORT`) ;
 - l'API : `http://localhost:8800` (documentation sur `/docs`, sonde `/@ping`), aussi joignable par l'interface sur
   `/api`.
 
 **3. Créer un compte, se connecter, créer une veille**
 
 Le premier administrateur se crée en ligne de commande (mot de passe demandé) ; ensuite, tout se fait dans l'interface
-web : inscription sur `/inscription`, création des veilles, rôles et accès des comptes sur `/admin`.
+web : inscription sur `/inscription`, création des veilles, rôles et accès des comptes sur l'administration (`/admin`).
 
 ```sh
 docker compose exec api python -m yimba.entrypoints.cli user create admin@exemple.org --role admin
@@ -97,7 +97,7 @@ journaux sont limités à 3 × 10 Mo.
 | beat | ~85 Mo | 128 Mo | — |
 | postgres | 30 à 120 Mo | 512 Mo | 50 connexions, `shared_buffers` 128 Mo |
 | redis | ~10 Mo | 128 Mo | file seulement : ni sauvegarde ni éviction |
-| frontend (nginx) | ~4 Mo | 32 Mo, 0,5 CPU | fichiers statiques et relais de `/api` |
+| frontend, admin (nginx) | ~4 Mo chacun | 32 Mo, 0,5 CPU chacun | fichiers statiques et relais de `/api` |
 | flower (`make monitoring`) | ~85 Mo | 192 Mo | lancé à la demande |
 | mlflow (`make mlflow`) | ~370 Mo | 768 Mo | 1 processus web, tâches de fond désactivées (2,2 Go sinon) |
 | superset (`make dashboards`) | ~200 Mo | 768 Mo | 1 processus, 4 threads |

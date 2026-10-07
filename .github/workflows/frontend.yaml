@@ -1,9 +1,10 @@
 name: Frontend
 
-# Checks, builds and publishes the frontend (user app and admin app, one nginx image). Runs when the frontend changes,
-# and on every git tag. On pull requests: check and image. On a push to main, preprod or develop, or a tag: the same,
+# Checks, builds and publishes the frontend: one image per app (user app, administration), each with its own builder.
+# Runs when the frontend changes, and on every git tag. On pull requests: check and image. On a push to main, preprod or develop, or a tag: the same,
 # then the image is published to GHCR, only if both succeeded:
-#   main -> latest, develop -> dev, preprod -> preprod, tag v1.2.0 -> v1.2.0 (plus the commit sha, for rollbacks).
+#   main -> latest, develop -> dev, preprod -> preprod, tag v1.2.0 -> v1.2.0 (plus the commit sha, for rollbacks),
+# for yimba-frontend-user and yimba-frontend-admin.
 on:
   pull_request:
     paths:
@@ -26,7 +27,8 @@ permissions:
   contents: read
 
 env:
-  # Image name, by default under the repository owner; the repository variable FRONTEND_IMAGE overrides it.
+  # Image name without the app, by default under the repository owner; the repository variable FRONTEND_IMAGE overrides
+  # it. The images are <name>-user and <name>-admin.
   IMAGE: ${{ vars.FRONTEND_IMAGE || format('ghcr.io/{0}/yimba-frontend', github.repository_owner) }}
 
 defaults:
@@ -64,6 +66,16 @@ jobs:
 
   image:
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - app: user
+            page: /
+            marker: _app/immutable
+          - app: admin
+            page: /admin/connexion
+            marker: /admin/_app/immutable
     steps:
       - uses: actions/checkout@v4
 
@@ -73,19 +85,19 @@ jobs:
         uses: docker/build-push-action@v6
         with:
           context: frontend
+          target: ${{ matrix.app }}
           load: true
-          tags: yimba-frontend:ci
-          cache-from: type=gha,scope=frontend
-          cache-to: type=gha,mode=max,scope=frontend
+          tags: yimba-frontend-${{ matrix.app }}:ci
+          cache-from: type=gha,scope=frontend-${{ matrix.app }}
+          cache-to: type=gha,mode=max,scope=frontend-${{ matrix.app }}
 
       - name: Smoke test
         working-directory: .
         run: |
-          docker run -d --name frontend -p 8080:8080 -e API_UPSTREAM=127.0.0.1:9 yimba-frontend:ci
+          docker run -d --name frontend -p 8080:8080 -e API_UPSTREAM=127.0.0.1:9 yimba-frontend-${{ matrix.app }}:ci
           for _ in $(seq 1 20); do curl -fsS http://localhost:8080/healthz && break; sleep 1; done
-          curl -fsS http://localhost:8080/ | grep -c 'content-security-policy' > /dev/null
-          curl -fsS http://localhost:8080/paroles | grep -c '_app/immutable' > /dev/null
-          curl -fsS http://localhost:8080/admin/connexion | grep -c '/admin/_app/immutable' > /dev/null
+          curl -fsS "http://localhost:8080${{ matrix.page }}" | grep -c 'content-security-policy' > /dev/null
+          curl -fsS "http://localhost:8080${{ matrix.page }}" | grep -c '${{ matrix.marker }}' > /dev/null
           docker rm -f frontend
 
   publish:
@@ -95,6 +107,9 @@ jobs:
     permissions:
       contents: read
       packages: write # push to GHCR with GITHUB_TOKEN when no GHRC_PASSWORD secret is set
+    strategy:
+      matrix:
+        app: [user, admin]
     steps:
       - uses: actions/checkout@v4
 
@@ -102,7 +117,7 @@ jobs:
         id: meta
         uses: docker/metadata-action@v5
         with:
-          images: ${{ env.IMAGE }}
+          images: ${{ env.IMAGE }}-${{ matrix.app }}
           flavor: |
             latest=false
           tags: |
@@ -127,8 +142,9 @@ jobs:
         uses: docker/build-push-action@v6
         with:
           context: frontend
+          target: ${{ matrix.app }}
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
-          cache-from: type=gha,scope=frontend
-          cache-to: type=gha,mode=max,scope=frontend
+          cache-from: type=gha,scope=frontend-${{ matrix.app }}
+          cache-to: type=gha,mode=max,scope=frontend-${{ matrix.app }}

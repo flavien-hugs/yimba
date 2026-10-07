@@ -83,11 +83,26 @@ make check         # le compilateur signale chaque appel à adapter
   précédente côté API.
 - Changer de mot de passe ferme toutes les sessions (règle de l'API) ; l'application reconnecte aussitôt celle en cours.
 
-## Image
+## Images
 
-`docker compose up -d frontend` (ou `make run` à la racine) : http://localhost:3000, administration sur `/admin`.
+Une image par application, chacune avec son propre constructeur (le `Dockerfile` a deux cibles) :
 
-- Construction avec Node, puis nginx non privilégié (port 8080, environ 30 Mo d'image, 4 Mo de mémoire).
+| Application | Cible | Image | Adresse locale |
+|---|---|---|---|
+| utilisateur | `user` | `ghcr.io/flavien-hugs/yimba-frontend-user` | http://localhost:3000 (`FRONTEND_PORT`) |
+| administration | `admin` | `ghcr.io/flavien-hugs/yimba-frontend-admin` | http://localhost:3001/admin (`ADMIN_PORT`) |
+
+`make run` à la racine les construit et les lance (services `frontend` et `admin`). À la main :
+`docker build --target user -t yimba-frontend-user frontend` (idem avec `admin`).
+
+- Les deux constructeurs partagent le téléchargement des dépendances (`pnpm fetch`) mais pas les sources : modifier
+  l'administration ne reconstruit pas l'application utilisateur, et chacune n'installe et ne compile que ses paquets.
+- Chaque application ouvre l'autre par son adresse extérieure, fixée à la construction : `VITE_ADMIN_URL` (lien
+  « Administration » des paramètres) et `VITE_USER_URL` (lien « Aller sur Yimba »), en variables `FRONTEND_ADMIN_URL`
+  et `FRONTEND_USER_URL` pour compose. Par défaut : les adresses locales ci-dessus. Derrière un même nom de domaine
+  (`/` et `/admin`), les valeurs `/admin/` et `/` du `Dockerfile` conviennent.
+- Chaque image a son origine : la connexion d'une application n'ouvre pas l'autre, c'est voulu pour l'administration.
+- Construction avec Node, puis nginx non privilégié (port 8080, environ 30 Mo par image, 4 Mo de mémoire).
 - `/api/` est transmis à `API_UPSTREAM` (par défaut `api:8800`), résolu à chaque requête : nginx démarre même si l'API
   n'est pas prête.
 - Les fichiers versionnés (`_app/immutable`) sont mis en cache pour un an, les pages jamais ; fichiers compressés
@@ -96,8 +111,9 @@ make check         # le compilateur signale chaque appel à adapter
   `frame-ancestors 'none'`, `nosniff` et les autres en-têtes.
 - `/healthz` sert la sonde de `docker compose`.
 
-La CI (`.github/workflows/frontend.yaml`) vérifie, construit et publie `ghcr.io/flavien-hugs/yimba-frontend` (variable
-de dépôt `FRONTEND_IMAGE` pour la changer) : `main` → `latest`, `develop` → `dev`, tag git → même tag.
+La CI (`.github/workflows/frontend.yaml`) vérifie, construit et publie les deux images (variable de dépôt
+`FRONTEND_IMAGE` pour changer le début du nom ; `-user` et `-admin` s'y ajoutent) : `main` → `latest`,
+`develop` → `dev`, tag git → même tag.
 
 ## Écarts avec la maquette
 

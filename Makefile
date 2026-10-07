@@ -12,7 +12,7 @@ help: ## Show this help
 .PHONY: run
 # The application containers are recreated on every run; PostgreSQL and Redis only when their configuration changes:
 # recreating Redis empties the task queue and cuts off the workers and Flower ("Error 111 connecting to redis:6379").
-APP_SERVICES := migrate api worker beat frontend
+APP_SERVICES := migrate api worker beat frontend admin
 
 run: ## Run the stack (web interface, api, worker, beat, postgres, redis); optional services: make help
 	docker compose up -d --wait postgres redis

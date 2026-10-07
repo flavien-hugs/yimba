@@ -5,6 +5,9 @@
 	import { session } from '@yimba/api';
 	import { Logo, Pagne } from '@yimba/ui';
 
+	// Where the user app is: the same site by default, another address when it has an image of its own.
+	const USER_URL: string = import.meta.env.VITE_USER_URL || '/';
+
 	const forbidden = $derived(page.status === 403);
 	const notFound = $derived(page.status === 404);
 
@@ -33,7 +36,7 @@
 		</p>
 		<div class="flex flex-wrap gap-2.5">
 			{#if forbidden}
-				<a href="/" class="btn btn-primary" data-sveltekit-reload>Aller sur Yimba</a>
+				<a href={USER_URL} class="btn btn-primary" data-sveltekit-reload>Aller sur Yimba</a>
 				<button type="button" class="btn btn-ghost" onclick={logout}>Changer de compte</button>
 			{:else}
 				<a href={resolve('/(admin)')} class="btn btn-primary">Retour aux comptes</a>

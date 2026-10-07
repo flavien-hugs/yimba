@@ -13,6 +13,9 @@
 		initials
 	} from '@yimba/ui';
 
+	// Where the administration is: the same site by default, another address when it has an image of its own.
+	const ADMIN_URL: string = import.meta.env.VITE_ADMIN_URL || '/admin/';
+
 	let { data } = $props();
 
 	const user = $derived(session.user ?? data.user);
@@ -76,7 +79,7 @@
 		</div>
 		<div class="flex flex-wrap gap-2.5">
 			{#if user.role === 'admin'}
-				<a href="/admin/" class="btn btn-soft" data-sveltekit-reload>Administration</a>
+				<a href={ADMIN_URL} class="btn btn-soft" data-sveltekit-reload>Administration</a>
 			{/if}
 			<button type="button" class="btn btn-ghost" onclick={logout}>
 				<Icon name="logout" size={18} /> Se déconnecter
