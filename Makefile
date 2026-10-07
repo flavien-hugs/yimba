@@ -7,11 +7,16 @@ endif
 
 .PHONY: help
 help: ## Show this help
-	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-20s\033[0m %s\n", $$1, $$2}'
+	@grep -hE '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-20s\033[0m %s\n", $$1, $$2}'
 
 .PHONY: run
-run: ## Run the stack (api, worker, beat, postgres, redis); optional services: make help
-	docker compose up -d --build --force-recreate
+# The application containers are recreated on every run; PostgreSQL and Redis only when their configuration changes:
+# recreating Redis empties the task queue and cuts off the workers and Flower ("Error 111 connecting to redis:6379").
+APP_SERVICES := migrate api worker beat frontend
+
+run: ## Run the stack (web interface, api, worker, beat, postgres, redis); optional services: make help
+	docker compose up -d --wait postgres redis
+	docker compose up -d --build --force-recreate --no-deps $(APP_SERVICES)
 
 .PHONY: logs
 logs: ## View logs from one/all containers (s=<service>)
@@ -67,6 +72,22 @@ tests: ## Run the backend tests (set TEST_DATABASE_URL to run them on PostgreSQL
 .PHONY: check
 check: lint ## Everything CI runs on the backend
 	$(MAKE) -C backend lint-arch tests
+
+.PHONY: front-install
+front-install: ## Install the frontend dependencies (pnpm)
+	$(MAKE) -C frontend install
+
+.PHONY: front-dev
+front-dev: ## Frontend user app with hot reload (http://localhost:5173), against the API of the stack
+	$(MAKE) -C frontend dev-user
+
+.PHONY: front-dev-admin
+front-dev-admin: ## Frontend admin app with hot reload (http://localhost:5174/admin)
+	$(MAKE) -C frontend dev-admin
+
+.PHONY: front-check
+front-check: ## Everything CI runs on the frontend
+	$(MAKE) -C frontend check
 
 .PHONY: pre-commit
 pre-commit: ## Run pre-commit
