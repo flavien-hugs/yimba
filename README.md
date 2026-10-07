@@ -3,6 +3,10 @@
 Yimba est une plateforme de **veille d'opinion et d'émotions en ligne** : elle collecte des publications par des API
 officielles, les analyse (langue, sentiment, émotion) et alerte quand l'opinion se dégrade, pour éclairer la décision.
 
+![Le tableau de bord de Yimba sur une veille « Réforme électorale » : chiffres clés, évolution de l'opinion, sujets, sources et voix du moment](docs/screenshots/tableau-de-bord.png)
+
+*Le tableau de bord, sur une veille de presse en ligne (données réelles collectées en local).*
+
 ## Organisation du dépôt
 
 ```
