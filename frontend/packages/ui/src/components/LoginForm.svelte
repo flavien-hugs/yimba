@@ -1,6 +1,7 @@
 <!-- Email and password login, shared by the user app and the admin app. -->
 <script lang="ts">
 	import { describe, session, type User } from '@yimba/api';
+	import IconInput from './IconInput.svelte';
 	import Notice from './Notice.svelte';
 	import PasswordInput from './PasswordInput.svelte';
 
@@ -36,7 +37,7 @@
 	{/if}
 	<label class="label">
 		Courriel
-		<input class="field" type="email" autocomplete="username" required bind:value={email} />
+		<IconInput icon="mail" type="email" autocomplete="username" required bind:value={email} />
 	</label>
 	<div class="flex flex-col gap-1.5">
 		<label for="login-password" class="font-bold">Mot de passe</label>

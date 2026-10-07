@@ -2,7 +2,7 @@
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
 	import { api, describe, session } from '@yimba/api';
-	import { AuthShell, Icon, Notice, PasswordInput, PasswordStrength } from '@yimba/ui';
+	import { AuthShell, Icon, IconInput, Notice, PasswordInput, PasswordStrength } from '@yimba/ui';
 
 	const PROMISES = [
 		'Voyez ce que les gens disent, dans leurs mots, en français comme en nouchi.',
@@ -62,11 +62,11 @@
 		{/if}
 		<label class="label">
 			Nom complet
-			<input class="field" type="text" autocomplete="name" maxlength="200" bind:value={fullName} />
+			<IconInput icon="user" autocomplete="name" maxlength={200} bind:value={fullName} />
 		</label>
 		<label class="label">
 			Courriel professionnel
-			<input class="field" type="email" autocomplete="email" required bind:value={email} />
+			<IconInput icon="mail" type="email" autocomplete="email" required bind:value={email} />
 		</label>
 		<div class="flex flex-col gap-1.5">
 			<label for="new-password" class="font-bold">Mot de passe</label>

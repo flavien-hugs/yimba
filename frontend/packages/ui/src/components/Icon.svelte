@@ -13,6 +13,9 @@
 		| 'person'
 		| 'users'
 		| 'back'
+		| 'lock'
+		| 'mail'
+		| 'user'
 		| 'settings'
 		| 'close'
 		| 'calendar'
@@ -89,6 +92,15 @@
 		<path d="M14 5.2a3 3 0 0 1 0 5.6M16 13.8c1.6.6 2.9 1.9 3.5 4.2" />
 	{:else if name === 'back'}
 		<path d="M13 5 7 11l6 6" />
+	{:else if name === 'lock'}
+		<rect x="4.5" y="9.5" width="13" height="9" rx="2" />
+		<path d="M7.5 9.5V7a3.5 3.5 0 0 1 7 0v2.5M11 13.2v2" />
+	{:else if name === 'mail'}
+		<rect x="3" y="5" width="16" height="12" rx="2" />
+		<path d="m3.5 6.5 7.5 5.5 7.5-5.5" />
+	{:else if name === 'user'}
+		<circle cx="11" cy="7.5" r="3.5" />
+		<path d="M4 18.5c.8-3.6 3.5-5.5 7-5.5s6.2 1.9 7 5.5" />
 	{:else if name === 'settings'}
 		<circle cx="11" cy="11" r="2.8" />
 		<path

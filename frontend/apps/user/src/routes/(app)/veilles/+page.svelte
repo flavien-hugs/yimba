@@ -96,9 +96,6 @@
 				un sujet : les mots, les sources et le moment où Yimba vous prévient.
 			</p>
 		</div>
-		<a href={resolve('/(app)/veilles/nouvelle')} class="btn btn-primary shrink-0">
-			<Icon name="plus" size={18} /> Nouvelle veille
-		</a>
 	</header>
 
 	{#if data.counts.all > 0}
@@ -115,20 +112,9 @@
 						</a>
 					{/each}
 				</nav>
-				<nav class="flex rounded-field bg-white p-1" aria-label="Affichage">
-					{#each VIEWS as option (option.label)}
-						{@const current = (data.view === 'cartes') === (option.value === 'cartes')}
-						<a
-							href={changed({ vue: option.value, page: null })}
-							aria-current={current ? 'true' : undefined}
-							class="flex min-h-9.5 items-center gap-2 rounded-field px-3 text-sm font-bold no-underline {current
-								? 'bg-indigo-soft text-indigo-deep'
-								: 'text-muted hover:text-ink'}"
-						>
-							<Icon name={option.icon} size={16} />{option.label}
-						</a>
-					{/each}
-				</nav>
+				<a href={resolve('/(app)/veilles/nouvelle')} class="btn btn-primary shrink-0">
+					<Icon name="plus" size={18} /> Nouvelle veille
+				</a>
 			</div>
 
 			<div class="flex flex-wrap items-center gap-x-3 gap-y-2.5">
@@ -173,6 +159,22 @@
 						<Icon name={data.order === 'asc' ? 'sort-asc' : 'sort-desc'} size={18} />
 						{orderLabel}
 					</a>
+				</div>
+				<div class="sm:ml-auto">
+					<nav class="flex rounded-field bg-white p-1" aria-label="Affichage">
+						{#each VIEWS as option (option.label)}
+							{@const current = (data.view === 'cartes') === (option.value === 'cartes')}
+							<a
+								href={changed({ vue: option.value, page: null })}
+								aria-current={current ? 'true' : undefined}
+								class="flex min-h-9.5 items-center gap-2 rounded-field px-3 text-sm font-bold no-underline {current
+									? 'bg-indigo-soft text-indigo-deep'
+									: 'text-muted hover:text-ink'}"
+							>
+								<Icon name={option.icon} size={16} />{option.label}
+							</a>
+						{/each}
+					</nav>
 				</div>
 			</div>
 		</div>

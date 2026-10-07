@@ -21,10 +21,11 @@
 </script>
 
 <div
-	class="flex items-center rounded-field border-[1.5px] bg-white pr-1.5 focus-within:border-indigo {invalid
+	class="flex items-center gap-2.5 rounded-field border-[1.5px] bg-white pr-1.5 pl-3.5 focus-within:border-indigo {invalid
 		? 'border-clay'
 		: 'border-line'}"
 >
+	<Icon name="lock" size={20} class="text-muted" />
 	<input
 		{id}
 		type={visible ? 'text' : 'password'}
@@ -35,7 +36,7 @@
 		aria-invalid={invalid}
 		aria-describedby={describedby}
 		spellcheck="false"
-		class="min-h-12 min-w-0 flex-1 bg-transparent px-3.5 text-[17px] text-ink outline-none"
+		class="min-h-12 min-w-0 flex-1 bg-transparent text-[17px] text-ink outline-none"
 	/>
 	<button
 		type="button"
