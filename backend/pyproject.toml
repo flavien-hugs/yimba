@@ -3,7 +3,7 @@ name = "yimba-api"
 version = "0.2.0"
 description = "Yimba: veille d'opinion et d'émotions en ligne pour l'aide à la décision"
 authors = ["haf <flavienhugs@incubtek.com>"]
-packages = [{include = "yimba", from = "src"}]
+packages = [{include = "yimba"}]
 
 [tool.poetry.dependencies]
 python = "^3.12"
@@ -62,7 +62,7 @@ include = '\.pyi?$'
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
 testpaths = ["tests"]
-pythonpath = ["src"]
+pythonpath = ["."]
 
 # Architecture rules, checked with `lint-imports` (make lint-arch).
 [tool.importlinter]

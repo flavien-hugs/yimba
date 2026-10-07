@@ -11,9 +11,9 @@ install: ## Install dependencies (main and dev)
 
 .PHONY: lint
 lint: ## Format check and lint
-	poetry run black --check src tests migrations
-	poetry run isort --check src tests migrations
-	poetry run flake8 src tests migrations/env.py
+	poetry run black --check yimba tests migrations
+	poetry run isort --check yimba tests migrations
+	poetry run flake8 yimba tests migrations/env.py
 
 .PHONY: lint-arch
 lint-arch: ## Check the architecture rules (import-linter)

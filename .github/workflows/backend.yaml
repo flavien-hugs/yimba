@@ -49,9 +49,9 @@ jobs:
 
       - name: Format and lint
         run: |
-          poetry run black --check src tests migrations
-          poetry run isort --check src tests migrations
-          poetry run flake8 src tests migrations/env.py
+          poetry run black --check yimba tests migrations
+          poetry run isort --check yimba tests migrations
+          poetry run flake8 yimba tests migrations/env.py
           poetry run black --config pyproject.toml --check ../analytics
           poetry run isort --settings-path . --check ../analytics
           poetry run flake8 --config .flake8 ../analytics

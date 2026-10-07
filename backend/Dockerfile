@@ -38,7 +38,7 @@ RUN --mount=type=cache,target=/root/.cache/pypoetry \
 FROM base AS runtime
 
 # HF_HOME: transformers models are downloaded once into this directory (a volume in docker compose).
-ENV PYTHONPATH=/app/src \
+ENV PYTHONPATH=/app \
     HF_HOME=/models \
     GIT_PYTHON_REFRESH=quiet
 
@@ -50,9 +50,9 @@ COPY --from=builder /venv /venv
 WORKDIR /app
 COPY alembic.ini appdesc.yml ./
 COPY migrations ./migrations
-COPY src ./src
+COPY yimba ./yimba
 # The code is read-only for appuser: compile it now rather than on every start.
-RUN python -m compileall -q -j 0 src migrations
+RUN python -m compileall -q -j 0 yimba migrations
 
 USER appuser
 EXPOSE 8800

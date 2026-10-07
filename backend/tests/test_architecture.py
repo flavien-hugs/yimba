@@ -5,7 +5,7 @@ from __future__ import annotations
 import ast
 from pathlib import Path
 
-SRC = Path(__file__).resolve().parents[1] / "src" / "yimba"
+SRC = Path(__file__).resolve().parents[1] / "yimba"
 MODULES = SRC / "modules"
 
 

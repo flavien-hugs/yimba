@@ -5,7 +5,7 @@
 !poetry.lock
 !alembic.ini
 !appdesc.yml
-!src/
+!yimba/
 !migrations/
 **/__pycache__
 **/*.py[co]

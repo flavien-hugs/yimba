@@ -21,7 +21,7 @@ mais les modules simples (`identity`, `watches`) restent minces.
 ## Carte du code
 
 ```
-backend/src/yimba/
+backend/yimba/
 ├── shared/            noyau partagé sans dépendance : erreurs, horloge, pagination, SourceKind
 ├── infrastructure/    outillage technique des adaptateurs sortants (SQLAlchemy, types)
 ├── modules/
@@ -114,8 +114,8 @@ mentions ──► yimba annotation export ──► Label Studio ──► expo
 1. Écrire un `Collector` qui appelle l'API **officielle** de la source (pas de scraping, pas de revendeur de données
    comme Apify ou Mention).
    Un mot-clé en échec ne doit pas faire perdre les autres : voir `collect_partially`.
-2. L'enregistrer dans `backend/src/yimba/modules/collection/adapters/factory.py`.
-3. Ajouter la valeur à `SourceKind` (`backend/src/yimba/shared/source.py`).
+2. L'enregistrer dans `backend/yimba/modules/collection/adapters/factory.py`.
+3. Ajouter la valeur à `SourceKind` (`backend/yimba/shared/source.py`).
 
 Aucun autre module ne change.
 

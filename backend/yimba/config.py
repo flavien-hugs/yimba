@@ -9,7 +9,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 _DEV_SALT = "dev-only-change-me"
 # The repository's .env sits at the monorepo root (shared with docker compose); a backend/.env may override it.
-_ROOT_ENV_FILE = Path(__file__).resolve().parents[3] / ".env"
+_ROOT_ENV_FILE = Path(__file__).resolve().parents[2] / ".env"
 
 
 class Settings(BaseSettings):

@@ -14,7 +14,7 @@ from yimba.config import get_settings
 from yimba.shared.source import SourceKind
 
 # backend/ in the repository, /app in the image: where alembic.ini lives.
-BACKEND_ROOT = Path(__file__).resolve().parents[3]
+BACKEND_ROOT = Path(__file__).resolve().parents[2]
 
 app = typer.Typer(no_args_is_help=True, help="Yimba command line")
 annotation = typer.Typer(no_args_is_help=True, help="Annotated corpus (Label Studio) and analyzer evaluation")
