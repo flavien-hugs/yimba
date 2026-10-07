@@ -1,0 +1,20 @@
+# Build context of the frontend image (docker compose: build ./frontend).
+# Allowlist: manifests, lockfile, sources and the nginx configuration. Neither node_modules nor build output nor .env
+# reach the build: dependencies are installed from the lockfile inside the image.
+*
+!package.json
+!pnpm-lock.yaml
+!pnpm-workspace.yaml
+!.npmrc
+!nginx/
+!apps/*/package.json
+!apps/*/tsconfig.json
+!apps/*/vite.config.ts
+!apps/*/src/
+!packages/*/package.json
+!packages/*/tsconfig.json
+!packages/*/src/
+
+# Inside the allowed directories
+**/*.test.ts
+**/.DS_Store
