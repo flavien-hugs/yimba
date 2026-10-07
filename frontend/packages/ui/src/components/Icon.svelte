@@ -13,6 +13,7 @@
 		| 'person'
 		| 'users'
 		| 'back'
+		| 'list'
 		| 'heart'
 		| 'share'
 		| 'eye'
@@ -81,6 +82,11 @@
 		<path d="M14 5.2a3 3 0 0 1 0 5.6M16 13.8c1.6.6 2.9 1.9 3.5 4.2" />
 	{:else if name === 'back'}
 		<path d="M13 5 7 11l6 6" />
+	{:else if name === 'list'}
+		<path d="M8 6h10M8 11h10M8 16h10" />
+		<circle cx="4.5" cy="6" r=".8" fill="currentColor" />
+		<circle cx="4.5" cy="11" r=".8" fill="currentColor" />
+		<circle cx="4.5" cy="16" r=".8" fill="currentColor" />
 	{:else if name === 'heart'}
 		<path d="M11 18.5S3.5 14 3.5 8.7A3.8 3.8 0 0 1 11 7a3.8 3.8 0 0 1 7.5 1.7C18.5 14 11 18.5 11 18.5Z" />
 	{:else if name === 'share'}

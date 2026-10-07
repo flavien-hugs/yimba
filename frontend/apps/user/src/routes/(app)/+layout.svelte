@@ -13,7 +13,7 @@
 	const user = $derived(session.user ?? data.user);
 	const routeId = $derived(page.route.id ?? '');
 	// Creating or editing a watch: the header keeps only "Fermer" and the account (design: "Nouvelle veille").
-	const focused = $derived(routeId.startsWith('/(app)/veilles'));
+	const focused = $derived(routeId.startsWith('/(app)/veilles/'));
 	const onAlerts = $derived(routeId === '/(app)/alertes');
 	const watch = $derived(currentWatch(data.watches, page.url));
 	const veille = $derived(watch?.id);
@@ -40,16 +40,30 @@
 			icon: 'bell'
 		},
 		{
+			path: resolve('/(app)/veilles'),
+			href: resolve('/(app)/veilles'),
+			label: 'Mes veilles',
+			short: 'Veilles',
+			icon: 'list'
+		},
+		{
 			path: resolve('/(app)/veilles/nouvelle'),
 			href: resolve('/(app)/veilles/nouvelle'),
 			label: 'Nouvelle veille',
-			short: 'Veille',
+			short: 'Créer',
 			icon: 'plus'
 		}
 	]);
 
-	const isCurrent = (path: string) =>
-		path === home ? page.url.pathname === home : page.url.pathname.startsWith(path);
+	const watches = resolve('/(app)/veilles');
+	const creation = resolve('/(app)/veilles/nouvelle');
+	const isCurrent = (path: string) => {
+		const here = page.url.pathname;
+		if (path === creation) return here === creation;
+		// The list stands for the settings of a watch too, not for the creation.
+		if (path === watches) return here.startsWith(watches) && here !== creation;
+		return path === home ? here === home : here.startsWith(path);
+	};
 
 	// The header's watch button: picks the watch shown, or, on the alerts, filters them.
 	const menu = $derived.by(() => {
@@ -243,7 +257,7 @@
 
 	<nav
 		aria-label="Navigation principale"
-		class="fixed inset-x-0 bottom-0 z-40 grid grid-cols-4 rounded-t-card bg-white px-2 pt-1.5 pb-[max(0.375rem,env(safe-area-inset-bottom))] shadow-[0_-6px_24px_rgb(29_27_58/0.08)] md:hidden"
+		class="fixed inset-x-0 bottom-0 z-40 grid grid-cols-5 rounded-t-card bg-white px-2 pt-1.5 pb-[max(0.375rem,env(safe-area-inset-bottom))] shadow-[0_-6px_24px_rgb(29_27_58/0.08)] md:hidden"
 	>
 		{#each nav as item (item.path)}
 			<a
