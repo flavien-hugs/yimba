@@ -71,6 +71,24 @@ async def test_watch_lifecycle(client):
     assert (await client.get(f"/watches/{watch['id']}", headers=AUTH)).status_code == 404
 
 
+async def test_the_list_of_watches_is_sorted_and_filtered(client):
+    await create_watch(client, name="Santé")
+    await create_watch(client, name="agriculture")
+
+    by_name = (await client.get("/watches?sort=name&order=asc", headers=AUTH)).json()
+    assert [w["name"] for w in by_name["items"]] == ["agriculture", "Santé"]
+    by_name = (await client.get("/watches?sort=name&order=desc", headers=AUTH)).json()
+    assert [w["name"] for w in by_name["items"]] == ["Santé", "agriculture"]
+
+    assert (await client.get("/watches?created_from=2999-01-01", headers=AUTH)).json()["total"] == 0
+    assert (await client.get("/watches?created_to=2000-01-01", headers=AUTH)).json()["total"] == 0
+    assert (await client.get("/watches?created_from=2000-01-01&created_to=2999-01-01", headers=AUTH)).json()[
+        "total"
+    ] == 2
+    assert (await client.get("/watches?sort=color", headers=AUTH)).status_code == 422
+    assert (await client.get("/watches?created_from=yesterday", headers=AUTH)).status_code == 422
+
+
 async def test_validation_errors_are_422(client):
     assert (await create_watch(client, keywords=[])).status_code == 422
     assert (await create_watch(client, sources=["myspace"])).status_code == 422

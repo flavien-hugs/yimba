@@ -8,6 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import Mapped, mapped_column
 
 from yimba.infrastructure.db import Base, JSONType, UTCDateTime
+from yimba.modules.watches.application.ports import WatchFilters, WatchSort
 from yimba.modules.watches.domain.model import AlertThreshold, Frequency, Watch
 from yimba.shared.pagination import Page, PageParams
 from yimba.shared.source import SourceKind
@@ -97,20 +98,22 @@ class SqlWatchRepository:
         return (await self._session.scalar(query) or 0) > 0
 
     async def list_for_owner(
-        self, owner_id: str, params: PageParams, search: str | None = None, active: bool | None = None
+        self, owner_id: str, params: PageParams, options: WatchFilters = WatchFilters()
     ) -> Page[Watch]:
         filters = [WatchRow.owner_id == owner_id]
-        if search:
-            filters.append(WatchRow.name.ilike(f"%{search}%"))
-        if active is not None:
-            filters.append(WatchRow.active.is_(active))
+        if options.search:
+            filters.append(WatchRow.name.ilike(f"%{options.search}%"))
+        if options.active is not None:
+            filters.append(WatchRow.active.is_(options.active))
+        if options.created_from:
+            filters.append(WatchRow.created_at >= options.created_from)
+        if options.created_to:
+            filters.append(WatchRow.created_at < options.created_to)
+        column = func.lower(WatchRow.name) if options.sort is WatchSort.NAME else WatchRow.created_at
+        order = column.desc() if options.descending else column.asc()
         total = await self._session.scalar(select(func.count()).select_from(WatchRow).where(*filters)) or 0
         rows = await self._session.scalars(
-            select(WatchRow)
-            .where(*filters)
-            .order_by(WatchRow.created_at.desc(), WatchRow.id)
-            .offset(params.offset)
-            .limit(params.size)
+            select(WatchRow).where(*filters).order_by(order, WatchRow.id).offset(params.offset).limit(params.size)
         )
         return Page(items=tuple(_to_domain(row) for row in rows), total=total, page=params.page, size=params.size)
 

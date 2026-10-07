@@ -3,7 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Sequence
 
-from yimba.modules.watches.application.ports import WatchRepository
+from yimba.modules.watches.application.ports import WatchFilters, WatchRepository
 from yimba.modules.watches.domain.model import AlertThreshold, Frequency, Watch
 from yimba.shared.clock import Clock
 from yimba.shared.errors import Conflict, NotFound
@@ -82,10 +82,8 @@ class ListWatches:
     def __init__(self, repository: WatchRepository) -> None:
         self._repository = repository
 
-    async def execute(
-        self, owner_id: str, params: PageParams, search: str | None = None, active: bool | None = None
-    ) -> Page[Watch]:
-        return await self._repository.list_for_owner(owner_id, params, search, active)
+    async def execute(self, owner_id: str, params: PageParams, filters: WatchFilters = WatchFilters()) -> Page[Watch]:
+        return await self._repository.list_for_owner(owner_id, params, filters)
 
 
 class UpdateWatch:
