@@ -1022,6 +1022,8 @@ export interface operations {
                 size?: number;
                 /** @description Filter by name */
                 search?: string | null;
+                /** @description Only the active watches (true) or the paused ones (false) */
+                active?: boolean | null;
             };
             header?: never;
             path?: never;

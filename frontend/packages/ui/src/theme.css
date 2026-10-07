@@ -292,6 +292,7 @@
 	}
 
 	.tab[aria-current='true'],
+	.tab[aria-current='page'],
 	.tab[aria-pressed='true'] {
 		border-color: var(--color-indigo);
 		background: var(--color-indigo);
