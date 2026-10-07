@@ -96,10 +96,14 @@ class SqlWatchRepository:
             query = query.where(WatchRow.id != excluding)
         return (await self._session.scalar(query) or 0) > 0
 
-    async def list_for_owner(self, owner_id: str, params: PageParams, search: str | None = None) -> Page[Watch]:
+    async def list_for_owner(
+        self, owner_id: str, params: PageParams, search: str | None = None, active: bool | None = None
+    ) -> Page[Watch]:
         filters = [WatchRow.owner_id == owner_id]
         if search:
             filters.append(WatchRow.name.ilike(f"%{search}%"))
+        if active is not None:
+            filters.append(WatchRow.active.is_(active))
         total = await self._session.scalar(select(func.count()).select_from(WatchRow).where(*filters)) or 0
         rows = await self._session.scalars(
             select(WatchRow)

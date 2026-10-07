@@ -82,8 +82,10 @@ class ListWatches:
     def __init__(self, repository: WatchRepository) -> None:
         self._repository = repository
 
-    async def execute(self, owner_id: str, params: PageParams, search: str | None = None) -> Page[Watch]:
-        return await self._repository.list_for_owner(owner_id, params, search)
+    async def execute(
+        self, owner_id: str, params: PageParams, search: str | None = None, active: bool | None = None
+    ) -> Page[Watch]:
+        return await self._repository.list_for_owner(owner_id, params, search, active)
 
 
 class UpdateWatch:

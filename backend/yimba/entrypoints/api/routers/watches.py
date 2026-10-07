@@ -46,10 +46,11 @@ async def list_all(
     page: int = Query(1, ge=1),
     size: int = Query(20, ge=1, le=100),
     search: str | None = Query(None, description="Filter by name"),
+    active: bool | None = Query(None, description="Only the active watches (true) or the paused ones (false)"),
     principal: Principal = Depends(deps.require(permissions.WATCH_READ)),
     use_case: ListWatches = Depends(deps.list_watches),
 ):
-    result = await use_case.execute(principal.id, PageParams(page, size), search)
+    result = await use_case.execute(principal.id, PageParams(page, size), search, active)
     return page_of(result, WatchOut.of)
 
 

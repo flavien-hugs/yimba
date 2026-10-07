@@ -71,6 +71,12 @@ async def test_delete_and_list_search(session, clock):
     a = await CreateWatch(repo, clock).execute(command(name="Santé"))
     await CreateWatch(repo, clock).execute(command(name="Emploi des jeunes"))
     assert (await ListWatches(repo).execute("u1", PageParams(), search="emploi")).total == 1
+    paused = await UpdateWatch(repo, clock).execute(UpdateWatchCommand(owner_id="u1", watch_id=a.id, active=False))
+    assert [w.id for w in (await ListWatches(repo).execute("u1", PageParams(), active=False)).items] == [paused.id]
+    assert (await ListWatches(repo).execute("u1", PageParams(), active=True)).total == 1
+    assert (await ListWatches(repo).execute("u1", PageParams())).total == 2
+    paused_page = await ListWatches(repo).execute("u1", PageParams(1, 1))
+    assert (len(paused_page.items), paused_page.total) == (1, 2)
     await DeleteWatch(repo).execute("u1", a.id)
     assert await repo.get(a.id) is None
 
