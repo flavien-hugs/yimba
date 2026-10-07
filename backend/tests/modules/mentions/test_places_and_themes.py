@@ -51,3 +51,19 @@ def test_themes_need_a_minimum_and_ignore_accents_in_grouping():
     (theme,) = top_terms(rows, min_mentions=3)
     assert theme.term == "épidémie" and theme.mentions == 3 and theme.negative == 2
     assert top_terms(rows, min_mentions=4) == []
+
+
+def test_elided_articles_and_the_country_are_not_themes():
+    rows = [
+        ("L'opposition réclame une réforme en Côte d'Ivoire", NEG),
+        ("Les partis de l'opposition rencontrent le gouvernement", NEU),
+        ("Qu'en pense l’opposition ? Côte d’Ivoire", NEG),
+    ]
+    themes = top_terms(rows, min_mentions=3)
+    assert [t.term for t in themes] == ["opposition"]
+
+
+def test_a_plural_counts_with_its_singular():
+    rows = [("Une proposition", NEU), ("Des propositions", NEU), ("Ses propositions", NEG), ("Nouvelle loi", NEU)]
+    themes = top_terms(rows, min_mentions=3)
+    assert [(t.term, t.mentions, t.negative) for t in themes] == [("propositions", 3, 1)]

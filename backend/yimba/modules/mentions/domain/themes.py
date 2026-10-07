@@ -25,13 +25,21 @@ _STOPWORDS = frozenset(
     much only other over same should some such than that their them then there these they this those very want were
     what when where which while will with would your
     http https www com html
+    cote ivoire ivoirien ivoiriens ivoirienne ivoiriennes nouvel nouveau nouvelle nouveaux nouvelles
     """.split()
 )
+# "l'opposition", "d'ivoire", "qu'il": the elided article is not part of the word.
+_ELISION = re.compile(r"^(?:[ldjmnstc]|qu)['’]", re.IGNORECASE)
 
 
 def _fold(word: str) -> str:
     plain = unicodedata.normalize("NFKD", word.replace("’", "'")).encode("ascii", "ignore").decode("ascii")
     return plain.lower().strip("'-")
+
+
+def _stem(key: str) -> str:
+    """A plural counts with its singular: "propositions" and "proposition" are one theme."""
+    return key[:-1] if len(key) > 5 and key.endswith("s") else key
 
 
 @dataclass(frozen=True, slots=True)
@@ -62,8 +70,10 @@ def top_terms(
     for text, label in rows:
         terms = {}
         for word in _WORD.findall(_URL.sub(" ", text)):
+            word = _ELISION.sub("", word)
             key = _fold(word)
             if len(key) >= 4 and key not in skipped:
+                key = _stem(key)
                 terms.setdefault(key, word.lower())
         for key, spelling in terms.items():
             seen[key] += 1
