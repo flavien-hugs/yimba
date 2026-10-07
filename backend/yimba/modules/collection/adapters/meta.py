@@ -87,7 +87,7 @@ def hashtag_of(keyword: str) -> str:
     return re.sub(r"\W+", "", keyword.lstrip("#").lower())
 
 
-def _media_item(media: Mapping[str, Any]) -> CollectedItem:
+def _media_item(media: Mapping[str, Any], hashtag: str | None = None) -> CollectedItem:
     return CollectedItem(
         source=SourceKind.INSTAGRAM,
         external_id=as_text(media.get("id")),
@@ -96,6 +96,7 @@ def _media_item(media: Mapping[str, Any]) -> CollectedItem:
         published_at=iso_datetime(media.get("timestamp")),
         likes=as_int(media.get("like_count")),
         comments=as_int(media.get("comments_count")),
+        venue=f"#{hashtag}" if hashtag else None,
         raw=dict(media),
     )
 
@@ -122,14 +123,14 @@ class InstagramHashtagCollector:
             f"{hashtag_ids[0]}/recent_media",
             {"user_id": self._account_id, "fields": MEDIA_FIELDS, "limit": min(limit, 50)},
         )
-        return [_media_item(entry) for entry in media.get("data") or []]
+        return [_media_item(entry, hashtag) for entry in media.get("data") or []]
 
 
 def _summary_total(value: Any) -> int:
     return as_int(((value or {}).get("summary") or {}).get("total_count")) if isinstance(value, Mapping) else 0
 
 
-def _post_item(page_id: str, post: Mapping[str, Any]) -> CollectedItem:
+def _post_item(page_id: str, post: Mapping[str, Any], venue: str | None = None) -> CollectedItem:
     return CollectedItem(
         source=SourceKind.FACEBOOK,
         external_id=as_text(post.get("id")),
@@ -140,11 +141,12 @@ def _post_item(page_id: str, post: Mapping[str, Any]) -> CollectedItem:
         likes=_summary_total(post.get("reactions")),
         shares=as_int((post.get("shares") or {}).get("count")),
         comments=_summary_total(post.get("comments")),
+        venue=venue,
         raw=dict(post),
     )
 
 
-def _comment_item(post: Mapping[str, Any], comment: Mapping[str, Any]) -> CollectedItem:
+def _comment_item(post: Mapping[str, Any], comment: Mapping[str, Any], venue: str | None = None) -> CollectedItem:
     text = as_text(comment.get("message"))
     created = as_text(comment.get("created_time"))
     # Comment ids are withheld for Pages read through "Page Public Content Access": derive a stable one.
@@ -160,6 +162,7 @@ def _comment_item(post: Mapping[str, Any], comment: Mapping[str, Any]) -> Collec
         published_at=iso_datetime(created),
         likes=as_int(comment.get("like_count")),
         comments=as_int(comment.get("comment_count")),
+        venue=venue,
         raw=dict(comment),
     )
 
@@ -181,7 +184,7 @@ class FacebookPagesCollector:
         )
 
     async def _page(self, page_id: str, keywords: list[str], limit: int) -> list[CollectedItem]:
-        token = await self._page_token(page_id)
+        token, name = await self._page_identity(page_id)
         found = await self._graph.get(
             f"{page_id}/posts", {"fields": POST_FIELDS, "limit": min(limit, 100)}, token=token
         )
@@ -190,7 +193,7 @@ class FacebookPagesCollector:
             for post in found.get("data") or []
             if post.get("id") and any(keyword in as_text(post.get("message")).lower() for keyword in keywords)
         ]
-        items = [_post_item(page_id, post) for post in posts]
+        items = [_post_item(page_id, post, name) for post in posts]
         for post in posts[: self._comment_posts]:
             comments = await self._graph.get(
                 f"{post['id']}/comments",
@@ -202,13 +205,16 @@ class FacebookPagesCollector:
                 },
                 token=token,
             )
-            items.extend(_comment_item(post, comment) for comment in comments.get("data") or [])
+            items.extend(_comment_item(post, comment, name) for comment in comments.get("data") or [])
         return items
 
-    async def _page_token(self, page_id: str) -> str | None:
-        """A Page the token's owner manages is read with its own Page token; any other Page with the main token."""
+    async def _page_identity(self, page_id: str) -> tuple[str | None, str | None]:
+        """The token to read a Page with, and its name.
+
+        A Page the token's owner manages is read with its own Page token; any other Page with the main token.
+        """
         try:
-            page = await self._graph.get(page_id, {"fields": "access_token"})
+            page = await self._graph.get(page_id, {"fields": "access_token,name"})
         except GraphApiError:
-            return None
-        return as_text(page.get("access_token")) or None
+            return None, None
+        return as_text(page.get("access_token")) or None, as_text(page.get("name")) or None

@@ -37,7 +37,13 @@ async def test_ingest_analyzes_dedupes_and_counts(ingest, session):
     summary = await ingest.execute(
         "w1",
         [
-            item("1", "Merci aux agents de santé, très bien 😊", author_handle="@awa", metrics=Metrics(likes=5)),
+            item(
+                "1",
+                "Merci aux agents de santé, très bien 😊",
+                author_handle="@awa",
+                metrics=Metrics(likes=5),
+                venue="  Fraternité   Matin ",
+            ),
             item("2", "C'est la honte, rupture de doses"),
             item("2", "same external id again"),
             item("3", "c'est la HONTE, rupture de doses https://x.co/1"),  # same text, other id
@@ -54,6 +60,7 @@ async def test_ingest_analyzes_dedupes_and_counts(ingest, session):
     by_id = {m.external_id: m for m in page.items}
     assert by_id["1"].sentiment.label is SentimentLabel.POSITIVE and by_id["1"].metrics.likes == 5
     assert by_id["1"].author_ref and "awa" not in by_id["1"].author_ref
+    assert by_id["1"].venue == "Fraternité Matin" and by_id["2"].venue is None
     assert by_id["2"].sentiment.label is SentimentLabel.NEGATIVE and by_id["2"].language == "fr"
 
 

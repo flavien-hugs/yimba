@@ -98,7 +98,11 @@ async def test_collect_then_read_mentions_stats_and_alerts(client, container):
                     SourceKind.NEWS, "1", "Bravo, super campagne de vaccination", published_at=NOW - timedelta(hours=2)
                 ),
                 CollectedItem(
-                    SourceKind.NEWS, "2", "Honte et scandale: rupture de doses", published_at=NOW - timedelta(hours=1)
+                    SourceKind.NEWS,
+                    "2",
+                    "Honte et scandale: rupture de doses",
+                    published_at=NOW - timedelta(hours=1),
+                    venue="Fraternité Matin",
                 ),
                 CollectedItem(
                     SourceKind.NEWS,
@@ -122,6 +126,16 @@ async def test_collect_then_read_mentions_stats_and_alerts(client, container):
     assert mentions["total"] == 2
     assert {m["sentiment"] for m in mentions["items"]} == {"negative"}
     assert all("awa" not in str(m["author_ref"]) for m in mentions["items"])
+    assert {m["venue"] for m in mentions["items"]} == {None, "Fraternité Matin"}
+
+    places = (await client.get(f"/watches/{watch['id']}/places", headers=AUTH)).json()
+    assert [p["district"] for p in places["districts"]][:2] == ["Denguélé", "Savanes"] and len(
+        places["districts"]
+    ) == 14
+    assert (places["located"], places["analyzed"]) == (0, 3)
+    themes = (await client.get(f"/watches/{watch['id']}/themes?limit=3", headers=AUTH)).json()
+    assert themes == {"themes": [], "analyzed": 3}  # no word comes back in three conversations
+    assert (await client.get("/watches/nope/themes", headers=AUTH)).status_code == 404
 
     assert (await client.get(f"/watches/{watch['id']}/mentions?sentiment=bogus", headers=AUTH)).status_code == 422
     assert (await client.get(f"/watches/{watch['id']}/mentions?q=bravo", headers=AUTH)).json()["total"] == 1

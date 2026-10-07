@@ -28,6 +28,8 @@ class CollectedItem:
     shares: int = 0
     views: int = 0
     comments: int = 0
+    # Where it was found, as a person would name it: the publication, the page, the channel, the hashtag.
+    venue: str | None = None
     raw: Mapping[str, Any] | None = field(default=None, compare=False)
 
 

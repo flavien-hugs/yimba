@@ -54,6 +54,7 @@ async def test_maps_articles():
         "https://www.fratmat.info/article/1",
         "fratmat.info",
     )
+    assert item.venue == "fratmat.info"
     assert item.text == "Campagne de vaccination : les centres pris d'assaut"
     assert item.published_at.isoformat() == "2026-10-05T08:15:00+00:00" and item.raw["language"] == "French"
     params = seen[0].url.params

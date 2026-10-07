@@ -5,7 +5,7 @@ import re
 from datetime import datetime, timezone
 from email.utils import parsedate_to_datetime
 from typing import Sequence
-from urllib.parse import quote_plus
+from urllib.parse import quote_plus, urlparse
 
 import httpx
 from defusedxml import ElementTree
@@ -20,6 +20,12 @@ _TAGS = re.compile(r"<[^>]+>")
 
 def _clean(value: str | None) -> str:
     return " ".join(html.unescape(_TAGS.sub(" ", value or "")).split())
+
+
+def _site_of(link: str) -> str | None:
+    """The site of an article link; Google News links only point at Google, which says nothing about the article."""
+    host = (urlparse(link).hostname or "").removeprefix("www.")
+    return None if not host or host.endswith("google.com") else host
 
 
 def parse_rss(xml_text: str) -> list[CollectedItem]:
@@ -55,6 +61,7 @@ def parse_rss(xml_text: str) -> list[CollectedItem]:
                 external_id=guid,
                 text=text,
                 author_handle=publisher or None,
+                venue=publisher or _site_of(link),
                 url=link or None,
                 published_at=published,
                 raw={child.tag: (child.text or "").strip() for child in node},

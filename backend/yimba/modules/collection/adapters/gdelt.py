@@ -46,6 +46,7 @@ def _article_item(article: Mapping[str, Any]) -> CollectedItem:
         external_id=url,
         text=as_text(article.get("title")),
         author_handle=as_text(article.get("domain")) or None,
+        venue=as_text(article.get("domain")) or None,
         url=url or None,
         published_at=_seen_date(article.get("seendate")),
         raw=dict(article),

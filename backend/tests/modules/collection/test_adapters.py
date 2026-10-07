@@ -23,6 +23,8 @@ def test_parse_rss():
     assert first.text == "Vaccination : 120 centres ouverts. Le ministère annonce"
     assert first.published_at.isoformat() == "2026-10-05T08:00:00+00:00"
     assert second.external_id == "https://news.example/b" and second.published_at is None
+    # Where it was found: the publication when the feed names it, else the site of the link.
+    assert (first.venue, second.venue) == ("Fraternité", "news.example")
 
 
 def test_google_news_items_keep_the_title_once():
@@ -33,6 +35,15 @@ def test_google_news_items_keep_the_title_once():
     <source url="https://news.abidjan.net">Abidjan.net News</source></item></channel></rss>"""
     (item,) = parse_rss(feed)
     assert item.text == "Abidjan : coupure d'électricité à Cocody" and item.author_handle == "Abidjan.net News"
+    assert item.venue == "Abidjan.net News"
+
+
+def test_a_google_news_link_does_not_name_the_site():
+    feed = (
+        "<rss><channel><item><title>T</title><link>https://news.google.com/rss/articles/x</link></item></channel></rss>"
+    )
+    (item,) = parse_rss(feed)
+    assert item.venue is None
 
 
 def test_parse_rss_rejects_invalid_xml_and_entity_bombs():
