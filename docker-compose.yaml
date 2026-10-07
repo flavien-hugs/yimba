@@ -1,10 +1,27 @@
+# Resource use is kept low by default (base stack about 350 MB measured, was about 560 MB): one Celery child, Flower on
+# demand, Redis without persistence, PostgreSQL sized for a small server, a single process for MLflow and Superset.
+# Every container has a memory and CPU cap and rotated logs. The worker is sized with WORKER_* in .env.
+
+# Container logs are rotated: at most 3 x 10 MB per container.
+x-logging: &logging
+    logging:
+        driver: json-file
+        options:
+            max-size: "10m"
+            max-file: "3"
+
 x-infra: &infra
     postgres:
         condition: service_healthy
     redis:
         condition: service_healthy
 
+x-app-env: &app-env
+    DATABASE_URL: "postgresql+asyncpg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}"
+    REDIS_URL: "redis://redis:6379/0"
+
 x-app: &app
+    <<: *logging
     build: ./backend
     image: "ghcr.io/flavien-hugs/yimba-api:${IMAGE_VERSION:-dev}"
     restart: unless-stopped
@@ -12,9 +29,7 @@ x-app: &app
     env_file:
         - path: .env
           required: false
-    environment:
-        DATABASE_URL: "postgresql+asyncpg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}"
-        REDIS_URL: "redis://redis:6379/0"
+    environment: *app-env
     depends_on: *infra
 
 # The services that use the tables start once the migrations are applied.
@@ -23,11 +38,22 @@ x-after-migrate: &after-migrate
     migrate:
         condition: service_completed_successfully
 
+# Health checks every 30 s once up, every 2 s while starting (fast startup without constant polling).
+x-healthcheck-timing: &healthcheck-timing
+    interval: 30s
+    timeout: 3s
+    retries: 5
+    start_period: 30s
+    start_interval: 2s
+
 services:
     migrate:
         <<: *app
         restart: "no"
         command: ["db-upgrade"]
+        deploy:
+            resources:
+                limits: {memory: 256m, cpus: "1"}
 
     api:
         <<: *app
@@ -36,10 +62,11 @@ services:
         ports:
             - "${APP_PORT:-8800}:8800"
         healthcheck:
+            <<: *healthcheck-timing
             test: ["CMD", "python", "-c", "import urllib.request as u; u.urlopen('http://localhost:8800/@ping')"]
-            interval: 10s
-            timeout: 3s
-            retries: 5
+        deploy:
+            resources:
+                limits: {memory: 384m, cpus: "1"}
 
     worker:
         <<: *app
@@ -50,26 +77,49 @@ services:
             args:
                 EXTRAS: "${EXTRAS:-}"
         image: "ghcr.io/flavien-hugs/yimba-api:${IMAGE_VERSION:-dev}${EXTRAS:+-ml}"
-        command: ["worker", "--concurrency", "2"]
+        # One child by default: collections run one at a time. Each child with transformers holds the model in memory
+        # (the weights are shared, about 1.1 GB, plus about 150 MB per child).
+        command: ["worker", "--concurrency", "${WORKER_CONCURRENCY:-1}"]
         depends_on: *after-migrate
+        environment:
+            <<: *app-env
+            # torch otherwise starts one thread per host core in every child, whatever the CPU cap:
+            # keep WORKER_TORCH_THREADS x WORKER_CONCURRENCY close to WORKER_CPUS.
+            OMP_NUM_THREADS: "${WORKER_TORCH_THREADS:-2}"
+            MKL_NUM_THREADS: "${WORKER_TORCH_THREADS:-2}"
+            TOKENIZERS_PARALLELISM: "false"
         volumes:
             - models:/models # transformers models, downloaded once (HF_HOME)
+        deploy:
+            resources:
+                # Room for the transformers model; the lexicon engine uses about 180 MB.
+                limits: {memory: "${WORKER_MEMORY_LIMIT:-2g}", cpus: "${WORKER_CPUS:-2}"}
 
     beat:
         <<: *app
         command: ["beat"]
         depends_on: *after-migrate
-
-    # Celery web UI (workers, queue, tasks). Bound to localhost; set FLOWER_BASIC_AUTH.
-    flower:
-        <<: *app
-        command: ["flower"]
-        ports:
-            - "127.0.0.1:${FLOWER_PORT:-5555}:5555"
+        deploy:
+            resources:
+                limits: {memory: 128m, cpus: "0.25"}
 
     postgres:
+        <<: *logging
         image: postgres:16
         restart: unless-stopped
+        # Sized for a small server (defaults: 100 connections); the app needs about 20.
+        command:
+            - postgres
+            - -c
+            - max_connections=50
+            - -c
+            - shared_buffers=128MB
+            - -c
+            - effective_cache_size=256MB
+            - -c
+            - work_mem=4MB
+            - -c
+            - maintenance_work_mem=32MB
         environment:
             POSTGRES_DB: "${POSTGRES_DB}"
             POSTGRES_USER: "${POSTGRES_USER}"
@@ -77,24 +127,43 @@ services:
         volumes:
             - yimba_pg:/var/lib/postgresql/data
         healthcheck:
+            <<: *healthcheck-timing
             test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
-            interval: 5s
-            timeout: 3s
-            retries: 10
+        deploy:
+            resources:
+                limits: {memory: 512m, cpus: "1"}
 
     redis:
+        <<: *logging
         image: redis:7-alpine
         restart: unless-stopped
+        # Only a task queue: no snapshots or append-only file (beat re-plans every minute after a restart), and never
+        # evict a queued task.
+        command: ["redis-server", "--save", "", "--appendonly", "no", "--maxmemory", "96mb", "--maxmemory-policy", "noeviction"]
         healthcheck:
+            <<: *healthcheck-timing
             test: ["CMD", "redis-cli", "ping"]
-            interval: 5s
-            timeout: 3s
-            retries: 10
+        deploy:
+            resources:
+                limits: {memory: 128m, cpus: "0.5"}
+
+    # ---- task monitoring (optional): docker compose --profile monitoring up -d -------------------------------
+    # Flower, the Celery web UI (workers, queue, tasks). Bound to localhost; set FLOWER_BASIC_AUTH.
+    flower:
+        <<: *app
+        profiles: ["monitoring"]
+        command: ["flower"]
+        ports:
+            - "127.0.0.1:${FLOWER_PORT:-5555}:5555"
+        deploy:
+            resources:
+                limits: {memory: 192m, cpus: "0.5"}
 
     # ---- error tracking (optional): docker compose --profile observability up -------------------------------
     # GlitchTip, self-hosted and open source, speaks the Sentry protocol. Create a project in its UI, then set
     # SENTRY_DSN=http://<key>@glitchtip:8000/<project> (host "glitchtip", not localhost, from the containers).
     glitchtip:
+        <<: *logging
         image: glitchtip/glitchtip:6
         profiles: ["observability"]
         restart: unless-stopped
@@ -108,26 +177,38 @@ services:
             DEFAULT_FROM_EMAIL: "${GLITCHTIP_FROM_EMAIL:-glitchtip@localhost}"
             EMAIL_URL: "${GLITCHTIP_EMAIL_URL:-consolemail://}"
             SERVER_ROLE: all_in_one
+            # Only errors are needed: log ingestion and uptime monitoring off (GlitchTip's low-memory settings).
+            GLITCHTIP_ENABLE_LOGS: "False"
+            GLITCHTIP_ENABLE_UPTIME: "False"
         ports:
             - "127.0.0.1:${GLITCHTIP_PORT:-8000}:8000"
         volumes:
             - glitchtip_uploads:/code/uploads
+        deploy:
+            resources:
+                limits: {memory: 768m, cpus: "1"}
 
     glitchtip-postgres:
+        <<: *logging
         image: postgres:18
         profiles: ["observability"]
         restart: unless-stopped
+        command: ["postgres", "-c", "max_connections=30", "-c", "shared_buffers=64MB"]
         environment:
             POSTGRES_DB: glitchtip
             POSTGRES_USER: glitchtip
             POSTGRES_PASSWORD: "${GLITCHTIP_DB_PASSWORD:-glitchtip}"
         volumes:
             - glitchtip_pg:/var/lib/postgresql
+        deploy:
+            resources:
+                limits: {memory: 256m, cpus: "0.5"}
 
     # ---- analytics (optional): docker compose --profile analytics run --rm analytics ------------------------
     # dbt builds and tests the marts (schema "analytics"), then Pandera checks their quality.
     # ANALYTICS_EVERY_SECONDS=3600 with "up -d analytics" repeats the run every hour.
     analytics:
+        <<: *logging
         build: ./analytics
         profiles: ["analytics"]
         restart: "no"
@@ -137,13 +218,18 @@ services:
             POSTGRES_USER: "${POSTGRES_USER}"
             POSTGRES_PASSWORD: "${POSTGRES_PASSWORD}"
             ANALYTICS_EVERY_SECONDS: "${ANALYTICS_EVERY_SECONDS:-}"
+            DBT_THREADS: "${DBT_THREADS:-2}"
         depends_on:
             postgres:
                 condition: service_healthy
+        deploy:
+            resources:
+                limits: {memory: 512m, cpus: "1"}
 
     # ---- dashboards (optional): docker compose --profile dashboards up -d ----------------------------------
     # Apache Superset on http://localhost:8088, reading the marts with the read-only role superset_reader.
     superset-init:
+        <<: *logging
         build: ./analytics/superset
         profiles: ["dashboards"]
         restart: "no"
@@ -155,13 +241,20 @@ services:
             SUPERSET_ADMIN_EMAIL: "${SUPERSET_ADMIN_EMAIL:-admin@localhost}"
             SUPERSET_READER_PASSWORD: "${SUPERSET_READER_PASSWORD:-}"
             POSTGRES_DB: "${POSTGRES_DB}"
+            # One gunicorn worker with a few threads: enough for a handful of analysts.
+            SERVER_WORKER_AMOUNT: "1"
+            SERVER_THREADS_AMOUNT: "4"
         volumes:
             - superset_home:/app/superset_home
         depends_on:
             postgres:
                 condition: service_healthy
+        deploy:
+            resources:
+                limits: {memory: 1g, cpus: "1"}
 
     superset:
+        <<: *logging
         build: ./analytics/superset
         profiles: ["dashboards"]
         restart: unless-stopped
@@ -173,10 +266,14 @@ services:
         depends_on:
             superset-init:
                 condition: service_completed_successfully
+        deploy:
+            resources:
+                limits: {memory: 768m, cpus: "1"}
 
     # ---- annotation (optional): docker compose --profile annotation up -d ----------------------------------
     # Label Studio Community on http://localhost:8080; tasks come from "yimba annotation export".
     label-studio:
+        <<: *logging
         image: heartexlabs/label-studio:1.23.2
         profiles: ["annotation"]
         restart: unless-stopped
@@ -188,18 +285,27 @@ services:
             - "127.0.0.1:${LABEL_STUDIO_PORT:-8080}:8080"
         volumes:
             - label_studio_data:/label-studio/data
+        deploy:
+            resources:
+                limits: {memory: 1g, cpus: "1"}
 
     # ---- model tracking (optional): docker compose --profile ml up -d ---------------------------------------
     # MLflow on http://localhost:5000: evaluations of the analyzers ("yimba annotation evaluate").
     mlflow:
+        <<: *logging
         image: ghcr.io/mlflow/mlflow:v3.16.1
         profiles: ["ml"]
         restart: unless-stopped
+        environment:
+            # No background job runner (GenAI judges, prompt optimisation): seven extra processes, about 1.5 GB.
+            MLFLOW_SERVER_ENABLE_JOB_EXECUTION: "false"
         command:
             - mlflow
             - server
             - --host=0.0.0.0
             - --port=5000
+            # One web worker (default 4): evaluations are rare and small.
+            - --workers=1
             - --backend-store-uri=sqlite:////mlflow/mlflow.db
             - --artifacts-destination=/mlflow/artifacts
             # Host headers accepted (DNS rebinding protection): the service name and the published port.
@@ -208,6 +314,9 @@ services:
             - "127.0.0.1:${MLFLOW_PORT:-5000}:5000"
         volumes:
             - mlflow_data:/mlflow
+        deploy:
+            resources:
+                limits: {memory: 768m, cpus: "1"}
 
 volumes:
     yimba_pg:

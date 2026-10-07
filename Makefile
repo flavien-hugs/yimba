@@ -12,7 +12,7 @@ help: ## Show this help
 # ---- the whole stack (docker compose) ----------------------------------------------------------------------------
 
 .PHONY: run
-run: ## Run the whole stack (api, worker, beat, flower, postgres, redis)
+run: ## Run the stack (api, worker, beat, postgres, redis); optional services: make help
 	docker compose up --build
 
 .PHONY: logs
@@ -38,6 +38,10 @@ annotation: ## Start Label Studio (http://localhost:8080)
 .PHONY: mlflow
 mlflow: ## Start the MLflow tracking server (http://localhost:5000)
 	docker compose --profile ml up -d
+
+.PHONY: monitoring
+monitoring: ## Start Flower, the Celery web UI (http://localhost:5555)
+	docker compose --profile monitoring up -d
 
 .PHONY: observability
 observability: ## Start GlitchTip (http://localhost:8000)
