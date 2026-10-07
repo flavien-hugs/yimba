@@ -13,6 +13,9 @@ from yimba import __version__
 from yimba.config import get_settings
 from yimba.shared.source import SourceKind
 
+# backend/ in the repository, /app in the image: where alembic.ini lives.
+BACKEND_ROOT = Path(__file__).resolve().parents[3]
+
 app = typer.Typer(no_args_is_help=True, help="Yimba command line")
 annotation = typer.Typer(no_args_is_help=True, help="Annotated corpus (Label Studio) and analyzer evaluation")
 app.add_typer(annotation, name="annotation")
@@ -91,7 +94,7 @@ def db_upgrade(revision: str = "head") -> None:
     from alembic import command
     from alembic.config import Config
 
-    command.upgrade(Config("alembic.ini"), revision)
+    command.upgrade(Config(str(BACKEND_ROOT / "alembic.ini")), revision)
 
 
 @annotation.command("config")

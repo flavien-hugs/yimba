@@ -1,7 +1,10 @@
 # Architecture
 
-Yimba suit une **architecture modulaire (monolithe modulaire) dont chaque module est hexagonal** (ports et adaptateurs).
-Un seul dépôt et une seule image Docker, lancée sous trois formes : `api`, `worker` et `beat`.
+Le dépôt est un mono-repo : `backend/` (ce document), `frontend/` (à venir), `analytics/`, orchestrés par le
+`docker-compose.yaml` de la racine.
+
+Le backend suit une **architecture modulaire (monolithe modulaire) dont chaque module est hexagonal** (ports et
+adaptateurs). Une seule image Docker, lancée sous trois formes : `api`, `worker` et `beat`.
 
 ## Pourquoi ce choix
 
@@ -18,7 +21,7 @@ mais les modules simples (`identity`, `watches`) restent minces.
 ## Carte du code
 
 ```
-src/yimba/
+backend/src/yimba/
 ├── shared/            noyau partagé sans dépendance : erreurs, horloge, pagination, SourceKind
 ├── infrastructure/    outillage technique des adaptateurs sortants (SQLAlchemy, types)
 ├── modules/
@@ -59,9 +62,9 @@ Un module ne dépend que des modules situés plus bas, et seulement via leur `pu
 
 ### Ce qui est vérifié automatiquement
 
-- `lint-imports` (contrats dans `pyproject.toml`) : sens des couches, indépendance des modules frères, domaine sans
+- `lint-imports` (contrats dans `backend/pyproject.toml`) : sens des couches, indépendance des modules frères, domaine sans
   framework ni base de données, application sans SQLAlchemy/FastAPI/httpx.
-- `tests/test_architecture.py` : un module n'importe un autre module que par son `public.py`.
+- `backend/tests/test_architecture.py` : un module n'importe un autre module que par son `public.py`.
 
 ## Chaîne de collecte
 
@@ -111,8 +114,8 @@ mentions ──► yimba annotation export ──► Label Studio ──► expo
 1. Écrire un `Collector` qui appelle l'API **officielle** de la source (pas de scraping, pas de revendeur de données
    comme Apify ou Mention).
    Un mot-clé en échec ne doit pas faire perdre les autres : voir `collect_partially`.
-2. L'enregistrer dans `modules/collection/adapters/factory.py`.
-3. Ajouter la valeur à `SourceKind` (`shared/source.py`).
+2. L'enregistrer dans `backend/src/yimba/modules/collection/adapters/factory.py`.
+3. Ajouter la valeur à `SourceKind` (`backend/src/yimba/shared/source.py`).
 
 Aucun autre module ne change.
 
@@ -125,5 +128,5 @@ mesurer chaque moteur dessus.
 
 ## Base de données
 
-PostgreSQL. Migrations Alembic dans `migrations/` (`make migrate`). Les tests tournent sur SQLite par défaut et sur
+PostgreSQL. Migrations Alembic dans `backend/migrations/` (`make migrate`). Les tests tournent sur SQLite par défaut et sur
 PostgreSQL avec `TEST_DATABASE_URL`.

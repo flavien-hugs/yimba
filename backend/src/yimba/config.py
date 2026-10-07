@@ -1,18 +1,21 @@
 from __future__ import annotations
 
 from functools import lru_cache
+from pathlib import Path
 from urllib.parse import urljoin
 
 from pydantic import model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 _DEV_SALT = "dev-only-change-me"
+# The repository's .env sits at the monorepo root (shared with docker compose); a backend/.env may override it.
+_ROOT_ENV_FILE = Path(__file__).resolve().parents[3] / ".env"
 
 
 class Settings(BaseSettings):
-    """Every setting comes from an UPPERCASE environment variable of the same name, or a local ``.env`` file."""
+    """Every setting comes from an UPPERCASE environment variable of the same name, or from a ``.env`` file."""
 
-    model_config = SettingsConfigDict(env_file=".env", extra="ignore", case_sensitive=True)
+    model_config = SettingsConfigDict(env_file=(_ROOT_ENV_FILE, ".env"), extra="ignore", case_sensitive=True)
 
     APP_ENV: str = "dev"
     API_HOST: str = "0.0.0.0"

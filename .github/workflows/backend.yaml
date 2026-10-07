@@ -1,9 +1,24 @@
-name: CI
+name: Backend
 
+# Runs when the backend, the analytics (they read its schema) or the stack definition change.
 on:
   pull_request:
+    paths:
+      - "backend/**"
+      - "analytics/**"
+      - "docker-compose.yaml"
+      - ".github/workflows/backend.yaml"
   push:
     branches: ["main", "preprod", "develop"]
+    paths:
+      - "backend/**"
+      - "analytics/**"
+      - "docker-compose.yaml"
+      - ".github/workflows/backend.yaml"
+
+defaults:
+  run:
+    working-directory: backend
 
 jobs:
   check:
@@ -34,9 +49,12 @@ jobs:
 
       - name: Format and lint
         run: |
-          poetry run black --check src tests migrations analytics
-          poetry run isort --check src tests migrations analytics
-          poetry run flake8 src tests migrations/env.py analytics
+          poetry run black --check src tests migrations
+          poetry run isort --check src tests migrations
+          poetry run flake8 src tests migrations/env.py
+          poetry run black --config pyproject.toml --check ../analytics
+          poetry run isort --settings-path . --check ../analytics
+          poetry run flake8 --config .flake8 ../analytics
 
       - name: Architecture rules
         run: poetry run lint-imports
@@ -51,7 +69,6 @@ jobs:
 
       - name: Migrations apply and match the models
         env:
-          PYTHONPATH: src
           DATABASE_URL: postgresql+asyncpg://yimba:yimba@localhost:5432/yimba_test
         run: |
           poetry run alembic downgrade base || true
@@ -82,7 +99,7 @@ jobs:
       - name: Build the image (not pushed; the cache is reused by the publish workflow)
         uses: docker/build-push-action@v6
         with:
-          context: .
+          context: backend
           load: true
           tags: yimba-api:ci
           cache-from: type=gha,scope=image

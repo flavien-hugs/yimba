@@ -1,30 +1,28 @@
-# yimba-api
+# Yimba
 
 Yimba est une plateforme de **veille d'opinion et d'émotions en ligne** : elle collecte des publications par des API
 officielles, les analyse (langue, sentiment, émotion) et alerte quand l'opinion se dégrade, pour éclairer la décision.
 
-L'architecture est décrite dans [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
+## Organisation du dépôt
 
-## Sources
+```
+yimba/
+├── backend/             API, workers de collecte et d'analyse (Python) — voir backend/README.md
+├── frontend/            interface web (à venir) — voir frontend/README.md
+├── analytics/           dbt (marts), Pandera (qualité), Superset (tableaux de bord)
+├── docs/                architecture (docs/ARCHITECTURE.md)
+├── legacy/              anciens gabarits de rapports, conservés pour référence
+├── docker-compose.yaml  toute la pile, services optionnels derrière des profils
+├── .env.example         configuration de la pile (copier en .env)
+└── Makefile             commandes communes (make help)
+```
 
-Uniquement des API officielles : ni scraping, ni revendeur de données. Une source sans identifiants est ignorée.
-
-| Source | API | Identifiants (`.env`) | Ce qui est collecté | Limites |
-|---|---|---|---|---|
-| `news` | Google News RSS + flux RSS ajoutés | aucun (`NEWS_EXTRA_FEEDS`) | articles | — |
-| `gdelt` | GDELT DOC 2.0 (presse mondiale) | aucun (`GDELT_ENABLED`) | titres d'articles des dernières 24 h | une requête toutes les 5 s par adresse IP (nouvel essai automatique) |
-| `youtube` | YouTube Data API v3 | `YOUTUBE_API_KEY` | vidéos et commentaires des premières vidéos | 10 000 unités/jour, ~106 par mot-clé : fréquence 6 h ou 24 h |
-| `bluesky` | AT Protocol | `BLUESKY_HANDLE`, `BLUESKY_APP_PASSWORD` | publications | — |
-| `facebook` | Graph API (Pages) | `META_ACCESS_TOKEN`, `FACEBOOK_PAGE_IDS` | publications des Pages suivies qui citent un mot-clé, et leurs commentaires | pas de recherche sur tout Facebook ; Pages non gérées : fonctionnalité « Page Public Content Access » |
-| `instagram` | Graph API (hashtags) | `META_ACCESS_TOKEN`, `INSTAGRAM_ACCOUNT_ID` | publications des dernières 24 h par hashtag | compte professionnel, 30 hashtags distincts par 7 jours, ni commentaires ni auteur |
-
-Les réponses brutes des API sont gardées dans `raw_items` (une ligne par publication, mise à jour à chaque passage) pour
-pouvoir corriger une conversion après coup ; elles contiennent des données personnelles en clair et sont supprimées après
-`RAW_RETENTION_DAYS` jours sans être revues.
+Chaque application a ses dépendances, son image Docker et son workflow de CI, déclenché seulement quand ses fichiers
+changent.
 
 ## Démarrage
 
-Prérequis : Python 3.12, [Poetry](https://python-poetry.org), Docker.
+Prérequis : Docker ; pour développer le backend, Python 3.12 et [Poetry](https://python-poetry.org).
 
 ```sh
 cp .env.example .env         # puis renseigner les valeurs
@@ -77,6 +75,7 @@ make analytics && make dashboards       # la base « Yimba analytics » est déc
 
 ```sh
 make annotation && make mlflow
+cd backend
 poetry run yimba annotation config > sentiment.xml           # interface d'étiquetage à coller dans Label Studio
 poetry run yimba annotation export <watch_id> --out tasks.json --size 300
 # Label Studio : créer un projet, coller sentiment.xml (Settings > Labeling Interface), importer tasks.json,
@@ -95,47 +94,10 @@ l'image de base (environ 400 Mo). Le modèle est téléchargé une fois dans le 
 processus worker. Les évaluations (`yimba annotation evaluate`) se lancent dans le worker :
 `docker compose exec worker python -m yimba.entrypoints.cli annotation evaluate /chemin/export.json`.
 
-## Image Docker
-
-Une image, trois rôles (`api` par défaut, `worker`, `beat`), construite en deux étapes : Poetry installe les
-dépendances verrouillées (`poetry.lock`) dans un environnement isolé, l'image finale ne garde que cet environnement et
-le code, déjà compilés en bytecode, et tourne en utilisateur non privilégié. Le contexte de construction ne contient que
-le nécessaire (`.dockerignore` en liste blanche : ni `.env`, ni tests, ni `.git`). La CI construit et teste l'image à
-chaque push ; la publication sur GHCR n'a lieu qu'après une CI réussie (image de base et variante `-ml`, plus une
-étiquette par commit).
-
-En local, sans Docker :
-
-```sh
-make install
-poetry run yimba db-upgrade          # DATABASE_URL pointe par défaut sur un fichier SQLite
-poetry run yimba api --reload
-poetry run yimba worker              # nécessite Redis
-poetry run yimba beat
-poetry run yimba flower              # http://localhost:5555
-poetry run yimba collect <watch_id> news   # collecter une source tout de suite, sans file d'attente
-```
-
-## API
-
-| Méthode | Chemin | Rôle |
-|---|---|---|
-| POST, GET | `/watches` | créer une veille, lister les siennes |
-| GET, PATCH, DELETE | `/watches/{id}` | consulter, modifier, supprimer |
-| GET | `/watches/{id}/mentions` | mentions (filtres : source, langue, sentiment, émotion, dates, texte) |
-| GET | `/watches/{id}/stats` | totaux et séries (`group_by=day\|source\|language`) |
-| GET | `/watches/{id}/alerts` | alertes levées |
-| POST | `/watches/{id}/alerts/{alert_id}/acknowledge` | marquer une alerte comme traitée |
-| GET | `/@ping` | sonde de vie |
-
-Chaque route exige `Authorization: Bearer <token>` et une permission (voir `appdesc.yml`). Une veille n'est visible que
-par son propriétaire.
-
 ## Qualité
 
 ```sh
-make check          # black, isort, flake8, règles d'architecture, tests
-TEST_DATABASE_URL=postgresql+asyncpg://user:pass@localhost/yimba_test make tests   # tests sur PostgreSQL
+make check          # backend : black, isort, flake8, règles d'architecture, tests ; analytics : lint
 ```
 
 ## Ce qui reste à faire avant la production

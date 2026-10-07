@@ -1,9 +1,9 @@
-name: Publish image to GHCR
+name: Publish backend image to GHCR
 
-# Publishes only what CI validated: runs after a successful CI on a push to main, preprod or develop.
+# Publishes only what the backend CI validated: runs after it succeeds on a push to main, preprod or develop.
 on:
   workflow_run:
-    workflows: ["CI"]
+    workflows: ["Backend"]
     types: [completed]
     branches: ["main", "preprod", "develop"]
 
@@ -48,7 +48,7 @@ jobs:
       - name: Build and push
         uses: docker/build-push-action@v6
         with:
-          context: .
+          context: backend
           push: true
           build-args: EXTRAS=${{ matrix.extras }}
           # A moving tag per branch, and an immutable one per commit for rollbacks.

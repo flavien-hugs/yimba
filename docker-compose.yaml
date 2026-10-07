@@ -5,7 +5,7 @@ x-infra: &infra
         condition: service_healthy
 
 x-app: &app
-    build: .
+    build: ./backend
     image: "ghcr.io/flavien-hugs/yimba-api:${IMAGE_VERSION:-dev}"
     restart: unless-stopped
     init: true # PID 1 forwards signals and reaps the Celery children
@@ -46,7 +46,7 @@ services:
         # EXTRAS="ml tracking" (transformers, torch CPU, MLflow client) goes into the worker image only, tagged "-ml";
         # the other services keep the small image.
         build:
-            context: .
+            context: ./backend
             args:
                 EXTRAS: "${EXTRAS:-}"
         image: "ghcr.io/flavien-hugs/yimba-api:${IMAGE_VERSION:-dev}${EXTRAS:+-ml}"

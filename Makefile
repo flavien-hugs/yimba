@@ -9,17 +9,11 @@ endif
 help: ## Show this help
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-20s\033[0m %s\n", $$1, $$2}'
 
-.PHONY: install
-install: ## Install dependencies
-	poetry install
+# ---- the whole stack (docker compose) ----------------------------------------------------------------------------
 
 .PHONY: run
-run: ## Run the whole stack (api, worker, beat, postgres, redis)
+run: ## Run the whole stack (api, worker, beat, flower, postgres, redis)
 	docker compose up --build
-
-.PHONY: migrate
-migrate: ## Apply database migrations
-	poetry run yimba db-upgrade
 
 .PHONY: logs
 logs: ## View logs from one/all containers (s=<service>)
@@ -28,23 +22,6 @@ logs: ## View logs from one/all containers (s=<service>)
 .PHONY: down
 down: ## Stop the stack and remove containers and networks
 	docker compose down
-
-.PHONY: lint
-lint: ## Format check and lint
-	poetry run black --check src tests migrations analytics
-	poetry run isort --check src tests migrations analytics
-	poetry run flake8 src tests migrations/env.py analytics
-
-.PHONY: lint-arch
-lint-arch: ## Check the architecture rules (import-linter)
-	poetry run lint-imports
-
-.PHONY: tests
-tests: ## Run tests (set TEST_DATABASE_URL to run them on PostgreSQL)
-	poetry run pytest -v
-
-.PHONY: check
-check: lint lint-arch tests ## Everything CI runs
 
 .PHONY: analytics
 analytics: ## Build and test the dbt marts, then run the Pandera quality checks
@@ -65,6 +42,31 @@ mlflow: ## Start the MLflow tracking server (http://localhost:5000)
 .PHONY: observability
 observability: ## Start GlitchTip (http://localhost:8000)
 	docker compose --profile observability up -d
+
+# ---- development (each application has its own Makefile) ---------------------------------------------------------
+
+.PHONY: install
+install: ## Install the backend dependencies
+	$(MAKE) -C backend install
+
+.PHONY: migrate
+migrate: ## Apply database migrations (backend)
+	$(MAKE) -C backend migrate
+
+.PHONY: lint
+lint: ## Format check and lint (backend, analytics)
+	$(MAKE) -C backend lint
+	cd backend && poetry run black --config pyproject.toml --check ../analytics
+	cd backend && poetry run isort --settings-path . --check ../analytics
+	cd backend && poetry run flake8 --config .flake8 ../analytics
+
+.PHONY: tests
+tests: ## Run the backend tests (set TEST_DATABASE_URL to run them on PostgreSQL)
+	$(MAKE) -C backend tests
+
+.PHONY: check
+check: lint ## Everything CI runs on the backend
+	$(MAKE) -C backend lint-arch tests
 
 .PHONY: pre-commit
 pre-commit: ## Run pre-commit

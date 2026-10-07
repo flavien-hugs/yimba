@@ -206,3 +206,12 @@ dotenv/
 
 # local database
 *.db
+
+# Frontend (Node)
+node_modules/
+.pnpm-store/
+frontend/dist/
+frontend/build/
+frontend/.vite/
+frontend/coverage/
+*.tsbuildinfo
