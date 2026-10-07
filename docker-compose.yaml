@@ -193,9 +193,9 @@ services:
             resources:
                 limits: {memory: 128m, cpus: "0.5"}
 
-    # ---- web interface: one image per app, each forwarding /api to the api service ------------------------------
+    # web interface: one image per app, each forwarding /api to the api service
     # The user app on http://localhost:${FRONTEND_PORT}, the administration on http://localhost:${ADMIN_PORT}/admin.
-    frontend:
+    frontend-user:
         <<: *logging
         build:
             context: ./frontend
@@ -218,7 +218,7 @@ services:
             resources:
                 limits: {memory: 32m, cpus: "0.5"}
 
-    admin:
+    frontend-admin:
         <<: *logging
         build:
             context: ./frontend
@@ -241,7 +241,7 @@ services:
             resources:
                 limits: {memory: 32m, cpus: "0.5"}
 
-    # ---- task monitoring (optional): docker compose --profile monitoring up -d -------------------------------
+    # task monitoring (optional): docker compose --profile monitoring up -d
     # Flower, the Celery web UI (workers, queue, tasks). Bound to localhost; set FLOWER_BASIC_AUTH.
     flower:
         <<: *app
@@ -253,7 +253,7 @@ services:
             resources:
                 limits: {memory: 192m, cpus: "0.5"}
 
-    # ---- error tracking (optional): docker compose --profile observability up -------------------------------
+    # error tracking (optional): docker compose --profile observability up
     # GlitchTip, self-hosted and open source, speaks the Sentry protocol. Create a project in its UI, then set
     # SENTRY_DSN=http://<key>@glitchtip:8000/<project> (host "glitchtip", not localhost, from the containers).
     glitchtip:
@@ -298,7 +298,7 @@ services:
             resources:
                 limits: {memory: 256m, cpus: "0.5"}
 
-    # ---- analytics (optional): docker compose --profile analytics run --rm analytics ------------------------
+    # analytics (optional): docker compose --profile analytics run --rm analytics
     # dbt builds and tests the marts (schema "analytics"), then Pandera checks their quality.
     # ANALYTICS_EVERY_SECONDS=3600 with "up -d analytics" repeats the run every hour.
     analytics:
@@ -320,7 +320,7 @@ services:
             resources:
                 limits: {memory: 512m, cpus: "1"}
 
-    # ---- dashboards (optional): docker compose --profile dashboards up -d ----------------------------------
+    # dashboards (optional): docker compose --profile dashboards up -d
     # Apache Superset on http://localhost:8088, reading the marts with the read-only role superset_reader.
     superset-init:
         <<: *logging
@@ -364,7 +364,7 @@ services:
             resources:
                 limits: {memory: 768m, cpus: "1"}
 
-    # ---- annotation (optional): docker compose --profile annotation up -d ----------------------------------
+    # annotation (optional): docker compose --profile annotation up -d
     # Label Studio Community on http://localhost:8080; tasks come from "yimba annotation export".
     label-studio:
         <<: *logging
