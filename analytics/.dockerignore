@@ -1,0 +1,16 @@
+# Build context of the analytics image (docker compose: build ./analytics).
+# Allowlist: the dbt project, the quality checks and the runner. Tests, SQL scripts, the Superset image (its own
+# context) and local dbt outputs stay out.
+*
+!requirements.txt
+!run.sh
+!dbt/
+!quality/
+
+# Inside the allowed directories: what a local "dbt build" or pytest leaves behind
+dbt/target/
+dbt/logs/
+dbt/dbt_packages/
+**/__pycache__
+**/*.py[co]
+**/.DS_Store

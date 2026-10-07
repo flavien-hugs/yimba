@@ -16,37 +16,25 @@ repos:
     - id: detect-private-key
     - id: trailing-whitespace
 
-# isort
-- repo: https://github.com/asottile/seed-isort-config
-  rev: v2.2.0
+# Python (backend, analytics): one style, configured in backend/
+- repo: https://github.com/PyCQA/isort
+  rev: 5.13.2
   hooks:
-    - id: seed-isort-config
+    - id: isort
+      args: ["--settings-path=backend"]
+      files: ^(backend|analytics)/
 
-# black
-- repo: https://github.com/ambv/black
-  rev: 24.3.0
+- repo: https://github.com/psf/black
+  rev: 24.10.0
   hooks:
     - id: black
-      args:
-        - --line-length=120
-        - --include='\.pyi?$'
-        - --exclude="""\.git |
-          \.__pycache__|
-          examples|
-          env|
-          dist|
-          _build"""
+      args: ["--config=backend/pyproject.toml"]
+      files: ^(backend|analytics)/
 
-# flake8
 - repo: https://github.com/PyCQA/flake8
   rev: 7.0.0
   hooks:
     - id: flake8
-      additional_dependencies:
-        - flake8-bugbear
-        - flake8-implicit-str-concat
-      args:
-        - "--max-line-length=120"
-        - "--select=B,C,E,F,W,T4,B9"
-        - "--ignore=B006,B008,B010,B903,B907,E203,E231,E701,W503"
-        - "--builtins=F821, F405"
+      args: ["--config=backend/.flake8"]
+      files: ^(backend|analytics)/
+      exclude: ^backend/migrations/versions/

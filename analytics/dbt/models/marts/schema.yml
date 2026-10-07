@@ -1,0 +1,34 @@
+version: 2
+
+models:
+  - name: dim_watches
+    description: Watches (veilles) and their alert settings.
+    columns:
+      - name: watch_id
+        data_tests: [unique, not_null]
+
+  - name: fct_sentiment_daily
+    description: Mentions per sentiment, by publication day, watch, source and language.
+    columns:
+      - name: published_day
+        data_tests: [not_null]
+      - name: mentions
+        data_tests: [not_null]
+
+  - name: fct_emotions_daily
+    description: Mentions per emotion, by publication day, watch and source.
+
+  - name: fct_collection_health_daily
+    description: Collection runs per day, watch and source; a source that keeps failing shows here first.
+    columns:
+      - name: success_rate
+        data_tests: [not_null]
+
+  - name: fct_data_quality_daily
+    description: Missing dates, undetermined language, neutral and emotion-less shares per collection day and source.
+
+  - name: fct_alerts
+    description: Alerts raised, with how long they took to be acknowledged.
+    columns:
+      - name: alert_id
+        data_tests: [unique, not_null]

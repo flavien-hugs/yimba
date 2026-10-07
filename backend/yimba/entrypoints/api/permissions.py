@@ -1,0 +1,10 @@
+"""Permission codes checked against the auth service. Keep in sync with ``appdesc.yml``."""
+
+WATCH_CREATE = "watch:can-create"
+WATCH_READ = "watch:can-read"
+WATCH_UPDATE = "watch:can-update"
+WATCH_DELETE = "watch:can-delete"
+MENTION_READ = "mention:can-read"
+STATISTICS_READ = "mention:can-read-statistics"
+ALERT_READ = "alert:can-read"
+ALERT_ACKNOWLEDGE = "alert:can-acknowledge"
