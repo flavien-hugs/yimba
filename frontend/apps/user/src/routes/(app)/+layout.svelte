@@ -45,23 +45,14 @@
 			label: 'Mes veilles',
 			short: 'Veilles',
 			icon: 'list'
-		},
-		{
-			path: resolve('/(app)/veilles/nouvelle'),
-			href: resolve('/(app)/veilles/nouvelle'),
-			label: 'Nouvelle veille',
-			short: 'Créer',
-			icon: 'plus'
 		}
 	]);
 
 	const watches = resolve('/(app)/veilles');
-	const creation = resolve('/(app)/veilles/nouvelle');
+	// "Mes veilles" stands for everything under /veilles: the list, a watch's settings and the creation.
 	const isCurrent = (path: string) => {
 		const here = page.url.pathname;
-		if (path === creation) return here === creation;
-		// The list stands for the settings of a watch too, not for the creation.
-		if (path === watches) return here.startsWith(watches) && here !== creation;
+		if (path === watches) return here.startsWith(watches);
 		return path === home ? here === home : here.startsWith(path);
 	};
 
@@ -98,6 +89,7 @@
 				...(watch
 					? [{ href: resolve('/(app)/veilles/[id]', { id: watch.id }), label: 'Réglages de cette veille' }]
 					: []),
+				{ href: resolve('/(app)/veilles'), label: 'Mes veilles' },
 				{ href: resolve('/(app)/veilles/nouvelle'), label: 'Nouvelle veille' }
 			]
 		};
@@ -257,7 +249,7 @@
 
 	<nav
 		aria-label="Navigation principale"
-		class="fixed inset-x-0 bottom-0 z-40 grid grid-cols-5 rounded-t-card bg-white px-2 pt-1.5 pb-[max(0.375rem,env(safe-area-inset-bottom))] shadow-[0_-6px_24px_rgb(29_27_58/0.08)] md:hidden"
+		class="fixed inset-x-0 bottom-0 z-40 grid grid-cols-4 rounded-t-card bg-white px-2 pt-1.5 pb-[max(0.375rem,env(safe-area-inset-bottom))] shadow-[0_-6px_24px_rgb(29_27_58/0.08)] md:hidden"
 	>
 		{#each nav as item (item.path)}
 			<a
