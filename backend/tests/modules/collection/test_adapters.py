@@ -38,6 +38,33 @@ def test_google_news_items_keep_the_title_once():
     assert item.venue == "Abidjan.net News"
 
 
+async def test_a_network_hiccup_is_retried_and_the_error_names_its_type():
+    attempts = []
+
+    def flaky(request):
+        attempts.append(request)
+        if len(attempts) < 3:
+            raise httpx.ConnectTimeout("")
+        return httpx.Response(200, text=RSS)
+
+    sleeps = []
+
+    async def record(seconds):
+        sleeps.append(seconds)
+
+    client = httpx.AsyncClient(transport=httpx.MockTransport(flaky))
+    target = CollectionTarget("w1", SourceKind.NEWS, ("vaccination",), ("fr",), ("CI",))
+    assert await RssNewsCollector(client, sleep=record).collect(target)
+    assert (len(attempts), sleeps) == (3, [2.0, 4.0])
+
+    def down(request):
+        raise httpx.ConnectTimeout("")
+
+    client = httpx.AsyncClient(transport=httpx.MockTransport(down))
+    with pytest.raises(ExternalServiceError, match=r"\(ConnectTimeout\)"):
+        await RssNewsCollector(client, sleep=record).collect(target)
+
+
 def test_a_google_news_link_does_not_name_the_site():
     feed = (
         "<rss><channel><item><title>T</title><link>https://news.google.com/rss/articles/x</link></item></channel></rss>"

@@ -7,6 +7,7 @@ GDELT answers 429 to more than one request every 5 seconds per IP address: one c
 from __future__ import annotations
 
 import asyncio
+import time
 from datetime import datetime, timezone
 from typing import Any, Awaitable, Callable, Mapping, Sequence
 
@@ -53,6 +54,14 @@ def _article_item(article: Mapping[str, Any]) -> CollectedItem:
     )
 
 
+def _retry_after(response: httpx.Response) -> float:
+    """The wait GDELT asks for, in seconds (0 when it does not say or gives a date)."""
+    try:
+        return min(float(response.headers.get("retry-after", 0)), 60.0)
+    except ValueError:
+        return 0.0
+
+
 class GdeltCollector:
     """Articles of the last ``timespan`` matching any keyword, from GDELT's worldwide press monitoring."""
 
@@ -65,12 +74,19 @@ class GdeltCollector:
         retries: int = 3,
         retry_delay: float = 6.0,
         sleep: Callable[[float], Awaitable[None]] = asyncio.sleep,
+        min_interval: float = 6.0,
+        now: Callable[[], float] = time.monotonic,
     ) -> None:
         self._client = client
         self._timespan = timespan
         self._retries = retries
         self._retry_delay = retry_delay
         self._sleep = sleep
+        # GDELT answers 429 to more than one request every 5 seconds from an address: the watches collected one
+        # after the other must not ask back to back.
+        self._min_interval = min_interval
+        self._now = now
+        self._last_request: float | None = None
 
     async def collect(self, target: CollectionTarget) -> Sequence[CollectedItem]:
         if not target.keywords:
@@ -95,17 +111,26 @@ class GdeltCollector:
         return [_article_item(article) for article in articles or [] if isinstance(article, Mapping)]
 
     async def _get(self, params: dict[str, Any]) -> httpx.Response:
+        if self._last_request is not None:
+            wait = self._min_interval - (self._now() - self._last_request)
+            if wait > 0:
+                await self._sleep(wait)
         for attempt in range(self._retries + 1):
+            self._last_request = self._now()
             try:
                 response = await self._client.get(API, params=params, timeout=30.0)
             except httpx.HTTPError as exc:
+                # GDELT slows its answers down (to the point of timing out) when it is asked too much: wait and retry.
+                if isinstance(exc, httpx.TransportError) and attempt < self._retries:
+                    await self._sleep(self._retry_delay * (attempt + 1))
+                    continue
                 raise ExternalServiceError(
                     f"GDELT unreachable ({type(exc).__name__})", code="collection/gdelt-unreachable"
                 ) from exc
             if response.status_code != 429:
                 break
             if attempt < self._retries:
-                await self._sleep(self._retry_delay * (attempt + 1))
+                await self._sleep(max(self._retry_delay * (attempt + 1), _retry_after(response)))
         if not response.is_success:
             raise ExternalServiceError(f"GDELT answered {response.status_code}", code="collection/gdelt-error")
         return response
