@@ -15,6 +15,8 @@ from yimba.infrastructure.db import Base
 from yimba.modules.alerts.adapters import persistence as _a  # noqa: F401
 from yimba.modules.analysis.public import build_text_analyzer
 from yimba.modules.collection.adapters import persistence as _c  # noqa: F401
+from yimba.modules.identity.adapters import persistence as _i  # noqa: F401
+from yimba.modules.identity.adapters.passwords import Argon2PasswordHasher
 from yimba.modules.identity.domain.model import Principal
 from yimba.modules.mentions.adapters import persistence as _m  # noqa: F401
 from yimba.modules.watches.adapters import persistence as _w  # noqa: F401
@@ -48,7 +50,7 @@ class FakeAccessControl:
             raise Unauthorized("bad token")
         return Principal(id=user_id, email=f"{user_id}@example.org")
 
-    async def authorize(self, token: str, permissions) -> None:
+    async def authorize(self, principal: Principal, token: str, permissions) -> None:
         denied = {part[5:] for part in token.split("|")[1:] if part.startswith("deny=")}
         if denied & set(permissions):
             raise Forbidden("missing permission")
@@ -59,8 +61,12 @@ def clock() -> FixedClock:
     return FixedClock()
 
 
-@pytest.fixture
-async def container(clock):
+def fast_hasher() -> Argon2PasswordHasher:
+    """Argon2 with minimal cost: same code path, milliseconds instead of a 64 MiB hash per call."""
+    return Argon2PasswordHasher(time_cost=1, memory_cost=1024, parallelism=1)
+
+
+async def _container(clock, access_control):
     settings = Settings(DATABASE_URL=POSTGRES_URL or "sqlite+aiosqlite://", AUTHOR_HASH_SALT="test-salt")
     engine_kwargs = (
         {"poolclass": NullPool}
@@ -70,20 +76,40 @@ async def container(clock):
     container = Container(
         settings,
         clock=clock,
-        access_control=FakeAccessControl(),
+        access_control=access_control,
         analyzer=build_text_analyzer("lexicon"),
         collectors={},
         http_client=httpx.AsyncClient(),
         engine_kwargs=engine_kwargs,
+        password_hasher=fast_hasher(),
     )
     async with container.engine.begin() as connection:
         await connection.run_sync(Base.metadata.drop_all)
         await connection.run_sync(Base.metadata.create_all)
-    yield container
+    return container
+
+
+async def _dispose(container):
     if POSTGRES_URL:
         async with container.engine.begin() as connection:
             await connection.run_sync(Base.metadata.drop_all)
     await container.aclose()
+
+
+@pytest.fixture
+async def container(clock):
+    """Access control faked from the token (see FakeAccessControl)."""
+    container = await _container(clock, FakeAccessControl())
+    yield container
+    await _dispose(container)
+
+
+@pytest.fixture
+async def local_container(clock):
+    """Real local authentication: accounts in the database, JWT access tokens."""
+    container = await _container(clock, None)
+    yield container
+    await _dispose(container)
 
 
 @pytest.fixture

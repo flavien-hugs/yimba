@@ -30,7 +30,8 @@ backend/yimba/
 │   ├── mentions/      publications normalisées, enrichies, dédoublonnées ; requêtes et statistiques
 │   ├── collection/    planification et exécution de la collecte, un collecteur par source
 │   ├── alerts/        alerte quand la part de négatif dépasse le seuil d'une veille
-│   └── identity/      authentification et permissions, déléguées au service auth existant
+│   └── identity/      comptes, sessions (JWT + rafraîchissement), rôles et permissions ;
+│                      ou délégation à l'ancien service d'authentification (AUTH_PROVIDER=remote)
 │       (chaque module : domain/ application/ adapters/ public.py)
 ├── entrypoints/       adaptateurs entrants : api (FastAPI), worker (Celery), cli (Typer)
 ├── bootstrap.py       racine de composition : seul endroit qui relie ports et adaptateurs

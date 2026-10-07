@@ -1,4 +1,4 @@
-# Backend (yimba-api)
+# Backend (yimba-backend)
 
 API HTTP (FastAPI), workers de collecte et d'analyse (Celery) et planificateur (beat), dans une seule image. Architecture
 modulaire, chaque module hexagonal : voir [../docs/ARCHITECTURE.md](../docs/ARCHITECTURE.md).
@@ -14,11 +14,11 @@ tournent dans les workers, planifiés par beat à travers Redis.
 
 ```mermaid
 flowchart LR
-    client(["Frontend / client HTTP"]) -->|"Bearer jeton"| api["API<br/>FastAPI"]
-    api -->|"jeton et permissions"| auth[("Service<br/>d'authentification")]
-    api -->|"veilles, mentions,<br/>statistiques, alertes"| db[("PostgreSQL")]
+    client(["Frontend / client HTTP"]) -->|"Bearer jeton<br/>(POST /auth/login)"| api["API<br/>FastAPI"]
+    api -->|"comptes, veilles, mentions,<br/>statistiques, alertes"| db[("PostgreSQL")]
+    api -.->|"si AUTH_PROVIDER=remote"| auth[("Ancien service<br/>d'authentification")]
 
-    beat["Beat<br/>Celery"] -->|"chaque minute : yimba.plan<br/>chaque jour : yimba.purge_raw"| redis[("Redis<br/>file « yimba »")]
+    beat["Beat<br/>Celery"] -->|"chaque minute : yimba.plan<br/>chaque jour : purges"| redis[("Redis<br/>file « yimba »")]
     redis --> worker["Workers<br/>Celery"]
     worker -->|"recherche par mot-clé"| sources[["API officielles<br/>News RSS · GDELT · YouTube<br/>Bluesky · Facebook · Instagram"]]
     worker -->|"collectes, réponses brutes,<br/>mentions, alertes"| db
@@ -92,14 +92,13 @@ flowchart LR
 sequenceDiagram
     participant C as Client
     participant A as API
-    participant Auth as Service d'authentification
     participant DB as PostgreSQL
 
     C->>A: GET /watches/{id}/mentions (Authorization: Bearer)
-    A->>Auth: valider le jeton
-    Auth-->>A: utilisateur, sinon 401
-    A->>Auth: permission « mention:can-read »
-    Auth-->>A: accordée, sinon 403
+    A->>A: signature et expiration du jeton, sinon 401
+    A->>DB: le compte : actif, rôle, version du jeton
+    DB-->>A: sinon 401 (désactivé, mot de passe changé)
+    A->>A: le rôle donne « mention:can-read », sinon 403
     A->>DB: la veille appartient-elle à l'utilisateur ?
     alt non (ou veille inconnue)
         A-->>C: 404
@@ -109,20 +108,58 @@ sequenceDiagram
     end
 ```
 
-Le service d'authentification injoignable donne une 502.
+Le compte est relu à chaque requête : désactiver un compte, changer son rôle ou son mot de passe prend effet tout de
+suite, sans attendre l'expiration du jeton. Avec `AUTH_PROVIDER=remote`, ces vérifications sont déléguées à l'ancien
+service d'authentification (une 502 s'il est injoignable).
+
+### Authentification
+
+Comptes locaux (table `users`), mots de passe hachés en Argon2id, rôles `user` et `admin`. L'inscription est libre
+(`REGISTRATION_ENABLED`) et crée des comptes `user` ; un admin se crée en ligne de commande.
+
+```mermaid
+sequenceDiagram
+    participant C as Client
+    participant A as API
+    participant DB as PostgreSQL
+
+    C->>A: POST /auth/register (email, mot de passe)
+    A->>DB: users : compte « user », mot de passe haché (Argon2id)
+    C->>A: POST /auth/login
+    A->>DB: vérifie le mot de passe (5 échecs de suite : compte bloqué 15 min)
+    A-->>C: jeton d'accès (JWT, 15 min) + jeton de rafraîchissement (30 jours)
+    C->>A: requêtes avec Authorization: Bearer <jeton d'accès>
+    C->>A: POST /auth/refresh (jeton de rafraîchissement)
+    A->>DB: refresh_tokens : l'ancien est consommé, un nouveau le remplace
+    A-->>C: nouvelle paire de jetons
+    Note over A,DB: rejouer un jeton déjà consommé révoque toute la session (jeton volé)
+    C->>A: POST /auth/logout
+    A->>DB: la session est révoquée
+```
+
+- Seule l'empreinte SHA-256 des jetons de rafraîchissement est stockée ; ceux qui ont expiré sont purgés chaque jour.
+- Changer de mot de passe (`POST /auth/password`) ferme toutes les autres sessions.
+- Un admin gère les comptes (`/users`) mais pas les veilles des autres ; le dernier admin actif ne peut être ni
+  rétrogradé, ni désactivé, ni supprimé.
+- Supprimer un compte (`DELETE /users/{id}`) est une suppression logique : la ligne reste (`deleted_at`), mais le compte
+  ne peut plus se connecter, ses jetons cessent de fonctionner tout de suite et ses veilles passent en pause (elles et
+  leurs données sont gardées). L'email redevient libre pour un nouveau compte ; `GET /users?include_deleted=true`
+  liste aussi les comptes supprimés.
+- Une même réponse 401 pour un email inconnu, un mauvais mot de passe ou un compte bloqué : rien n'indique quels comptes
+  existent.
 
 ## Sources
 
 Uniquement des API officielles : ni scraping, ni revendeur de données. Une source sans identifiants est ignorée.
 
-| Source | API | Identifiants (`.env`) | Ce qui est collecté | Limites |
-|---|---|---|---|---|
-| `news` | Google News RSS + flux RSS ajoutés | aucun (`NEWS_EXTRA_FEEDS`) | articles | — |
-| `gdelt` | GDELT DOC 2.0 (presse mondiale) | aucun (`GDELT_ENABLED`) | titres d'articles des dernières 24 h | une requête toutes les 5 s par adresse IP (nouvel essai automatique) |
-| `youtube` | YouTube Data API v3 | `YOUTUBE_API_KEY` | vidéos et commentaires des premières vidéos | 10 000 unités/jour, ~106 par mot-clé : fréquence 6 h ou 24 h |
-| `bluesky` | AT Protocol | `BLUESKY_HANDLE`, `BLUESKY_APP_PASSWORD` | publications | — |
-| `facebook` | Graph API (Pages) | `META_ACCESS_TOKEN`, `FACEBOOK_PAGE_IDS` | publications des Pages suivies qui citent un mot-clé, et leurs commentaires | pas de recherche sur tout Facebook ; Pages non gérées : fonctionnalité « Page Public Content Access » |
-| `instagram` | Graph API (hashtags) | `META_ACCESS_TOKEN`, `INSTAGRAM_ACCOUNT_ID` | publications des dernières 24 h par hashtag | compte professionnel, 30 hashtags distincts par 7 jours, ni commentaires ni auteur |
+| Source      | API                                | Identifiants (`.env`)                       | Ce qui est collecté                                                         | Limites                                                                                               |
+| ----------- | ---------------------------------- | ------------------------------------------- | --------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------- |
+| `news`      | Google News RSS + flux RSS ajoutés | aucun (`NEWS_EXTRA_FEEDS`)                  | articles                                                                    | —                                                                                                     |
+| `gdelt`     | GDELT DOC 2.0 (presse mondiale)    | aucun (`GDELT_ENABLED`)                     | titres d'articles des dernières 24 h                                        | une requête toutes les 5 s par adresse IP (nouvel essai automatique)                                  |
+| `youtube`   | YouTube Data API v3                | `YOUTUBE_API_KEY`                           | vidéos et commentaires des premières vidéos                                 | 10 000 unités/jour, ~106 par mot-clé : fréquence 6 h ou 24 h                                          |
+| `bluesky`   | AT Protocol                        | `BLUESKY_HANDLE`, `BLUESKY_APP_PASSWORD`    | publications                                                                | —                                                                                                     |
+| `facebook`  | Graph API (Pages)                  | `META_ACCESS_TOKEN`, `FACEBOOK_PAGE_IDS`    | publications des Pages suivies qui citent un mot-clé, et leurs commentaires | pas de recherche sur tout Facebook ; Pages non gérées : fonctionnalité « Page Public Content Access » |
+| `instagram` | Graph API (hashtags)               | `META_ACCESS_TOKEN`, `INSTAGRAM_ACCOUNT_ID` | publications des dernières 24 h par hashtag                                 | compte professionnel, 30 hashtags distincts par 7 jours, ni commentaires ni auteur                    |
 
 Les réponses brutes des API sont gardées dans `raw_items` (une ligne par publication, mise à jour à chaque passage) pour
 pouvoir corriger une conversion après coup ; elles contiennent des données personnelles en clair et sont supprimées après
@@ -130,22 +167,33 @@ pouvoir corriger une conversion après coup ; elles contiennent des données per
 
 ## API
 
-| Méthode | Chemin | Rôle |
-|---|---|---|
-| POST, GET | `/watches` | créer une veille, lister les siennes |
-| GET, PATCH, DELETE | `/watches/{id}` | consulter, modifier, supprimer |
-| GET | `/watches/{id}/mentions` | mentions (filtres : source, langue, sentiment, émotion, dates, texte) |
-| GET | `/watches/{id}/stats` | totaux et séries (`group_by=day\|source\|language`) |
-| GET | `/watches/{id}/alerts` | alertes levées |
-| POST | `/watches/{id}/alerts/{alert_id}/acknowledge` | marquer une alerte comme traitée |
-| GET | `/@ping` | sonde de vie |
+| Méthode            | Chemin                                        | Rôle                                                                  |
+| ------------------ | --------------------------------------------- | --------------------------------------------------------------------- |
+| POST, GET          | `/watches`                                    | créer une veille, lister les siennes                                  |
+| GET, PATCH, DELETE | `/watches/{id}`                               | consulter, modifier, supprimer                                        |
+| GET                | `/watches/{id}/mentions`                      | mentions (filtres : source, langue, sentiment, émotion, dates, texte) |
+| GET                | `/watches/{id}/stats`                         | totaux et séries (`group_by=day\|source\|language`)                   |
+| GET                | `/watches/{id}/alerts`                        | alertes levées                                                        |
+| POST               | `/watches/{id}/alerts/{alert_id}/acknowledge` | marquer une alerte comme traitée                                      |
+| GET                | `/@ping`                                      | sonde de vie                                                          |
+| POST               | `/auth/register`                              | créer un compte (`user`)                                              |
+| POST               | `/auth/login`                                 | jeton d'accès + jeton de rafraîchissement                             |
+| POST               | `/auth/refresh`                               | nouvelle paire de jetons (l'ancien jeton de rafraîchissement est consommé) |
+| POST               | `/auth/logout`                                | fermer la session                                                     |
+| GET                | `/auth/me`                                    | le compte de l'appelant                                               |
+| POST               | `/auth/password`                              | changer de mot de passe                                               |
+| GET                | `/users`                                      | lister les comptes (admin)                                            |
+| PATCH              | `/users/{id}`                                 | changer le rôle d'un compte ou le désactiver (admin)                  |
+| DELETE             | `/users/{id}`                                 | supprimer un compte, suppression logique (admin)                      |
 
-Chaque route exige `Authorization: Bearer <token>` et une permission (voir `appdesc.yml`). Une veille n'est visible que
-par son propriétaire.
+Les routes hors `/auth/register`, `/auth/login`, `/auth/refresh`, `/auth/logout` et `/@ping` exigent
+`Authorization: Bearer <jeton d'accès>` et une permission donnée par le rôle (liste dans `appdesc.yml`). Une veille
+n'est visible que par son propriétaire. Dans `/docs`, le bouton « Authorize » prend le jeton d'accès.
 
 ## Développement
 
-En local, sans Docker (la configuration est lue dans le `.env` de la racine, puis dans `backend/.env` s'il existe) :
+En local, sans Docker. Le backend lit ses réglages dans les variables d'environnement : exporter le `.env` de la racine
+d'abord (`make` à la racine le fait tout seul).
 
 ```sh
 make install                         # poetry install
@@ -155,6 +203,8 @@ poetry run yimba worker              # nécessite Redis
 poetry run yimba beat
 poetry run yimba flower              # http://localhost:5555
 poetry run yimba collect <watch_id> news   # collecter une source tout de suite, sans file d'attente
+poetry run yimba user create admin@exemple.org --role admin   # créer un compte (le mot de passe est demandé)
+poetry run yimba user set-role awa@exemple.org admin
 ```
 
 Vérifications :
@@ -172,11 +222,24 @@ le code, déjà compilés en bytecode, et tourne en utilisateur non privilégié
 le nécessaire (`.dockerignore` en liste blanche : ni `.env`, ni tests, ni `.git`).
 
 Un seul workflow, [`.github/workflows/backend.yaml`](../.github/workflows/backend.yaml), déclenché quand `backend/`,
-`analytics/` ou `docker-compose.yaml` changent :
+`analytics/` ou `docker-compose.yaml` changent, et à chaque tag git :
 
-| Job | Pull request | Push sur `main`, `preprod`, `develop` |
+| Job | Pull request | Push sur `main`, `preprod`, `develop` ou tag |
 |---|---|---|
 | `check` : lint, architecture, tests SQLite et PostgreSQL, migrations, dbt et Pandera | oui | oui |
 | `image` : construction de l'image et test de démarrage | oui | oui |
-| `publish` : image de base et variante `-ml` poussées sur GHCR (`latest` / `preprod` / `dev`, plus une étiquette par commit) | non | si `check` et `image` réussissent |
+| `publish` : image de base et variante `-ml` poussées sur GHCR | non | si `check` et `image` réussissent |
 
+Image publiée : `ghcr.io/flavien-hugs/yimba-backend` (la variable de dépôt `BACKEND_IMAGE` la remplace), variante
+`-ml` pour le worker avec transformers.
+
+| Événement | Étiquette | Variante ML |
+|---|---|---|
+| push sur `main` | `latest` | `latest-ml` |
+| push sur `develop` | `dev` | `dev-ml` |
+| push sur `preprod` | `preprod` | `preprod-ml` |
+| tag git `v1.2.0` | `v1.2.0` | `v1.2.0-ml` |
+| chaque publication | le sha du commit | `<sha>-ml` |
+
+Connexion à GHCR : par défaut le propriétaire du dépôt et le jeton du workflow (`GITHUB_TOKEN`), sans secret à créer ;
+les secrets `GHRC_USERNAME` et `GHRC_PASSWORD` les remplacent s'ils existent.

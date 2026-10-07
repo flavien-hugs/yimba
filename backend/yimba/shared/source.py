@@ -1,8 +1,9 @@
 from __future__ import annotations
 
-from enum import StrEnum
+from enum import StrEnum, unique
 
 
+@unique
 class SourceKind(StrEnum):
     """Where a mention comes from. Shared vocabulary of watches, collection and mentions."""
 

@@ -122,6 +122,17 @@ class UpdateWatch:
         return watch
 
 
+class PauseOwnerWatches:
+    """When an account is deleted, its watches stop being collected (they stay, paused, with their data)."""
+
+    def __init__(self, repository: WatchRepository, clock: Clock) -> None:
+        self._repository = repository
+        self._clock = clock
+
+    async def execute(self, owner_id: str) -> int:
+        return await self._repository.deactivate_for_owner(owner_id, self._clock.now())
+
+
 class DeleteWatch:
     def __init__(self, repository: WatchRepository) -> None:
         self._repository = repository

@@ -1,1 +1,1 @@
-"""Identity: who is calling, and may they do this. Delegates to the existing auth microservice."""
+"""Identity: who is calling, and may they do this. Local accounts (JWT) or the legacy auth service."""

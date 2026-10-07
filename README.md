@@ -22,21 +22,86 @@ changent.
 
 ## Démarrage
 
-Prérequis : Docker ; pour développer le backend, Python 3.12 et [Poetry](https://python-poetry.org).
+Prérequis : Docker Engine 25 et Compose 2.24, ou plus récents. La pile de base tient dans 2 CPU et 1 Go de RAM ; prévoir 2 Go de
+plus avec le modèle transformers. Pour développer le backend sans Docker : Python 3.12 et
+[Poetry](https://python-poetry.org) (voir `backend/README.md`).
+
+**1. Configurer**
 
 ```sh
-cp .env.example .env         # puis renseigner les valeurs
-make run                     # api + worker + beat + flower + postgres + redis, migrations incluses (service migrate)
+cp .env.example .env
 ```
 
-L'API écoute sur `http://localhost:8800` (documentation sur `/docs`), Flower (suivi des tâches Celery) sur
-`http://localhost:5555` avec `FLOWER_BASIC_AUTH`.
+À renseigner au minimum dans `.env` :
+
+| Variable | Pourquoi |
+|---|---|
+| `POSTGRES_PASSWORD` | mot de passe de la base |
+| `AUTHOR_HASH_SALT` | sel des empreintes d'auteurs ; obligatoire en production, à ne plus jamais changer |
+| `JWT_SECRET` | signe les jetons d'accès : 32 caractères aléatoires au moins (`openssl rand -base64 48`) |
+| `CORS_ALLOW_ORIGINS` | origines autorisées (le frontend) |
+| `FLOWER_BASIC_AUTH` | identifiants de Flower, si on le lance |
+
+La presse (`news`, `gdelt`) se collecte sans clé. YouTube, Bluesky, Facebook et Instagram s'activent en renseignant
+leurs identifiants (voir `backend/README.md`).
+
+**2. Lancer**
+
+```sh
+make run          # ou : docker compose up -d --build
+```
+
+La migration de la base s'applique d'abord, puis l'API, le worker et beat démarrent. L'API écoute sur
+`http://localhost:8800` (documentation sur `/docs`, sonde `/@ping`).
+
+**3. Créer un compte, se connecter, créer une veille**
+
+```sh
+# Le premier admin (mot de passe demandé) ; les autres comptes peuvent s'inscrire par POST /auth/register.
+docker compose exec api python -m yimba.entrypoints.cli user create admin@exemple.org --role admin
+
+TOKEN=$(curl -s -X POST http://localhost:8800/auth/login -H "Content-Type: application/json" \
+    -d '{"email": "admin@exemple.org", "password": "<mot de passe>"}' | python3 -c "import sys, json; print(json.load(sys.stdin)['access_token'])")
+
+curl -X POST http://localhost:8800/watches \
+    -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" \
+    -d '{"name": "Santé", "keywords": ["vaccination"], "sources": ["news", "gdelt"], "frequency_minutes": 60}'
+```
+
+Le jeton d'accès dure 15 minutes ; `POST /auth/refresh` en donne un nouveau à partir du jeton de rafraîchissement.
+
+Beat planifie la collecte dans la minute ; les résultats arrivent sur `/watches/{id}/mentions`, `/stats` et `/alerts`.
+Pour collecter tout de suite : `docker compose exec worker python -m yimba.entrypoints.cli collect <watch_id> news`.
+
+**4. Arrêter** : `make down` (les données restent dans les volumes ; `docker compose down -v` les efface).
+
+### Ressources
+
+Valeurs par défaut, mesurées sur la pile en fonctionnement ; chaque conteneur est plafonné (mémoire et CPU) et ses
+journaux sont limités à 3 × 10 Mo.
+
+| Service | Mémoire mesurée | Plafond | Réglage |
+|---|---|---|---|
+| api | ~90 Mo | 384 Mo, 1 CPU | — |
+| worker (lexique) | ~120 Mo | `WORKER_MEMORY_LIMIT` (2 Go), `WORKER_CPUS` (2) | `WORKER_CONCURRENCY` (1) |
+| worker (transformers) | ~770 Mo | idem | `WORKER_TORCH_THREADS` (2) |
+| beat | ~85 Mo | 128 Mo | — |
+| postgres | 30 à 120 Mo | 512 Mo | 50 connexions, `shared_buffers` 128 Mo |
+| redis | ~10 Mo | 128 Mo | file seulement : ni sauvegarde ni éviction |
+| flower (`make monitoring`) | ~85 Mo | 192 Mo | lancé à la demande |
+| mlflow (`make mlflow`) | ~370 Mo | 768 Mo | 1 processus web, tâches de fond désactivées (2,2 Go sinon) |
+| superset (`make dashboards`) | ~200 Mo | 768 Mo | 1 processus, 4 threads |
+| label-studio (`make annotation`) | 250 à 470 Mo | 1 Go | — |
+| analytics (`make analytics`) | ponctuel | 512 Mo | `DBT_THREADS` (2) |
+
+Pour traiter plus de veilles en parallèle : augmenter `WORKER_CONCURRENCY` et `WORKER_CPUS` ensemble (avec transformers,
+garder `WORKER_TORCH_THREADS × WORKER_CONCURRENCY ≈ WORKER_CPUS`).
 
 ## Outils (open source, auto-hébergés, chacun derrière un profil `docker compose`)
 
 | Besoin | Outil (licence) | Lancer | Adresse |
 |---|---|---|---|
-| Suivi des tâches | Flower (BSD) | toujours lancé | http://localhost:5555 |
+| Suivi des tâches | Flower (BSD) | `make monitoring` | http://localhost:5555 |
 | Erreurs applicatives | GlitchTip (MIT) | `make observability` | http://localhost:8000 |
 | Transformations SQL | dbt-core (Apache 2.0) | `make analytics` | schéma `analytics` |
 | Qualité des données | Pandera (MIT) + tests dbt | `make analytics` | sortie de la commande |
@@ -102,7 +167,8 @@ make check          # backend : black, isort, flake8, règles d'architecture, te
 
 ## Ce qui reste à faire avant la production
 
-- Valider le contrat avec le service d'authentification (`AuthServiceAccessControl`, voir sa docstring).
+- Authentification : vérification de l'adresse email et mot de passe oublié (il faut un envoi d'emails), limitation
+  du nombre d'inscriptions par adresse IP si l'inscription reste ouverte.
 - Valider les collecteurs YouTube, Bluesky, Facebook et Instagram avec de vrais identifiants (testés sur les formats
   documentés des API) ; créer l'application Meta, faire la vérification d'entreprise et l'App Review.
 - Annoter un corpus français et nouchi, évaluer lexique et transformers dessus (`yimba annotation`), choisir le moteur.

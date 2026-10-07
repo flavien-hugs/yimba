@@ -19,6 +19,8 @@ BACKEND_ROOT = Path(__file__).resolve().parents[2]
 app = typer.Typer(no_args_is_help=True, help="Yimba command line")
 annotation = typer.Typer(no_args_is_help=True, help="Annotated corpus (Label Studio) and analyzer evaluation")
 app.add_typer(annotation, name="annotation")
+users = typer.Typer(no_args_is_help=True, help="Accounts (local authentication)")
+app.add_typer(users, name="user")
 
 
 @app.command()
@@ -95,6 +97,52 @@ def db_upgrade(revision: str = "head") -> None:
     from alembic.config import Config
 
     command.upgrade(Config(str(BACKEND_ROOT / "alembic.ini")), revision)
+
+
+def _with_accounts(work):
+    """Run ``work(accounts)`` against the configured database and return its result."""
+    from sqlalchemy.pool import NullPool
+
+    from yimba.bootstrap import Container
+
+    async def main():
+        container = Container(get_settings(), engine_kwargs={"poolclass": NullPool})
+        try:
+            async with container.session_factory() as session:
+                return await work(container.accounts(session))
+        finally:
+            await container.aclose()
+
+    return asyncio.run(main())
+
+
+@users.command("create")
+def user_create(
+    email: str,
+    role: str = typer.Option("user", help="user or admin"),
+    full_name: str | None = typer.Option(None),
+    password: str = typer.Option(..., prompt=True, hide_input=True, confirmation_prompt=True),
+) -> None:
+    """Create an account (works even when public registration is closed). The first admin is created this way."""
+    from yimba.modules.identity.public import Role
+
+    async def work(accounts):
+        return await accounts.register(email, password, full_name, role=Role(role), by_admin=True)
+
+    user = _with_accounts(work)
+    typer.echo(f"Created {user.email} ({user.role.value}), id {user.id}")
+
+
+@users.command("set-role")
+def user_set_role(email: str, role: str = typer.Argument(..., help="user or admin")) -> None:
+    """Change the role of an account."""
+    from yimba.modules.identity.public import Role
+
+    async def work(accounts):
+        return await accounts.update_user_by_email(email, role=Role(role))
+
+    user = _with_accounts(work)
+    typer.echo(f"{user.email} is now {user.role.value}")
 
 
 @annotation.command("config")

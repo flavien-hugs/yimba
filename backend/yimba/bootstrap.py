@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from datetime import timedelta
 from typing import Callable
 
 import httpx
@@ -29,7 +30,18 @@ from yimba.modules.collection.public import (
     TaskQueue,
     build_collectors,
 )
-from yimba.modules.identity.public import AccessControl, AuthServiceAccessControl
+from yimba.modules.identity.public import (
+    AccessControl,
+    AccountService,
+    Argon2PasswordHasher,
+    AuthPolicy,
+    AuthServiceAccessControl,
+    JwtAccessTokens,
+    PasswordHasher,
+    PasswordPolicy,
+    build_account_service,
+    build_local_access_control,
+)
 from yimba.modules.mentions.public import build_mention_ingestor, build_sentiment_window_reader
 from yimba.modules.watches.public import build_watch_directory
 from yimba.shared.clock import Clock, SystemClock
@@ -52,6 +64,7 @@ class Container:
         collectors: CollectorRegistry | None = None,
         http_client: httpx.AsyncClient | None = None,
         engine_kwargs: dict | None = None,
+        password_hasher: PasswordHasher | None = None,
     ) -> None:
         self.settings = settings
         self.clock: Clock = clock or SystemClock()
@@ -59,10 +72,23 @@ class Container:
         self.engine = engine or make_engine(settings.DATABASE_URL, **(engine_kwargs or {}))
         self.session_factory: async_sessionmaker[AsyncSession] = make_session_factory(self.engine)
         self.analyzer = analyzer or build_text_analyzer(settings.ANALYSIS_ENGINE, settings.ANALYSIS_MODEL)
-        self.access_control = access_control or AuthServiceAccessControl(
-            self.http, settings.userinfo_url, settings.access_check_url
+        self.password_hasher: PasswordHasher = password_hasher or Argon2PasswordHasher()
+        self.access_tokens = JwtAccessTokens(settings.JWT_SECRET, settings.ACCESS_TOKEN_MINUTES)
+        self.auth_policy = AuthPolicy(
+            registration_enabled=settings.REGISTRATION_ENABLED,
+            refresh_lifetime=timedelta(days=settings.REFRESH_TOKEN_DAYS),
+            max_failed_logins=settings.LOGIN_MAX_FAILURES,
+            lock_duration=timedelta(minutes=settings.LOGIN_LOCK_MINUTES),
+            password=PasswordPolicy(settings.MIN_PASSWORD_LENGTH, settings.MAX_PASSWORD_LENGTH),
         )
+        self.access_control = access_control or self._build_access_control()
         self.collectors: CollectorRegistry = collectors if collectors is not None else self._build_collectors()
+
+    def _build_access_control(self) -> AccessControl:
+        s = self.settings
+        if s.AUTH_PROVIDER == "remote":
+            return AuthServiceAccessControl(self.http, s.userinfo_url, s.access_check_url)
+        return build_local_access_control(self.session_factory, self.access_tokens, self.clock)
 
     def _build_collectors(self) -> CollectorRegistry:
         s = self.settings
@@ -84,6 +110,15 @@ class Container:
         )
 
     # ---- use cases bound to a session --------------------------------------------------------------------------
+
+    def accounts(self, session: AsyncSession) -> AccountService:
+        return build_account_service(
+            session,
+            hasher=self.password_hasher,
+            access_tokens=self.access_tokens,
+            clock=self.clock,
+            policy=self.auth_policy,
+        )
 
     def collect_for_watch(self, session: AsyncSession) -> CollectForWatch:
         return CollectForWatch(
