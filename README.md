@@ -118,7 +118,7 @@ garder `WORKER_TORCH_THREADS × WORKER_CONCURRENCY ≈ WORKER_CPUS`).
 | Tableaux de bord | Apache Superset (Apache 2.0) | `make dashboards` | http://localhost:8088 |
 | Annotation du corpus | Label Studio Community (Apache 2.0) | `make annotation` | http://localhost:8080 |
 | Expériences et versions de modèles | MLflow (Apache 2.0) | `make mlflow` | http://localhost:5000 |
-| Modèles NLP | transformers (Apache 2.0), torch CPU | `EXTRAS="ml tracking"` (image du worker) puis `ANALYSIS_ENGINE=transformers` | — |
+| Modèles NLP | transformers (Apache 2.0), torch CPU | `EXTRAS=ml tracking` (sans guillemets) (image du worker) puis `ANALYSIS_ENGINE=transformers` | — |
 
 Tous écoutent sur `127.0.0.1` seulement.
 
@@ -163,7 +163,7 @@ Chaque évaluation est enregistrée dans MLflow : moteur, modèle, version du le
 F1 macro et par classe, matrice de confusion, textes mal classés. L'export n'envoie ni auteur ni lien, et ne pré-remplit
 pas les réponses (`--with-predictions` pour le faire, au risque de biaiser le corpus de référence).
 
-**Modèle transformers** : mettre `EXTRAS="ml tracking"` et `ANALYSIS_ENGINE=transformers` dans `.env`, puis
+**Modèle transformers** : mettre `EXTRAS=ml tracking` (sans guillemets) et `ANALYSIS_ENGINE=transformers` dans `.env`, puis
 `make run`. Seul le worker reçoit ces dépendances (image `…:dev-ml`, environ 2 Go) ; l'API, beat et Flower gardent
 l'image de base (environ 400 Mo). Le modèle est téléchargé une fois dans le volume `models` et chargé une fois par
 processus worker. Les évaluations (`yimba annotation evaluate`) se lancent dans le worker :
