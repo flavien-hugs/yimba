@@ -7,6 +7,7 @@ from yimba.modules.watches.application.use_cases import (
     DeleteWatch,
     GetWatch,
     ListWatches,
+    PauseOwnerWatches,
     UpdateWatch,
     UpdateWatchCommand,
 )
@@ -80,3 +81,16 @@ async def test_list_active_excludes_paused_watches(session, clock):
     b = await CreateWatch(repo, clock).execute(command(name="Emploi"))
     await UpdateWatch(repo, clock).execute(UpdateWatchCommand(owner_id="u1", watch_id=b.id, active=False))
     assert [w.id for w in await repo.list_active()] == [a.id]
+
+
+async def test_pausing_an_owner_pauses_only_their_active_watches(session, clock):
+    repository = SqlWatchRepository(session)
+    create = CreateWatch(repository, clock)
+    first = await create.execute(command("u1", "Santé"))
+    await create.execute(command("u1", "Éducation"))
+    other = await create.execute(command("u2", "Santé"))
+
+    assert await PauseOwnerWatches(repository, clock).execute("u1") == 2
+    assert await PauseOwnerWatches(repository, clock).execute("u1") == 0
+    assert not (await repository.get(first.id)).active
+    assert [w.id for w in await repository.list_active()] == [other.id]

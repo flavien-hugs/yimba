@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from datetime import datetime
-from enum import StrEnum
+from enum import StrEnum, unique
 from typing import Protocol, Sequence
 
 from yimba.modules.analysis.public import Emotion, SentimentLabel
@@ -11,6 +11,7 @@ from yimba.shared.pagination import Page, PageParams
 from yimba.shared.source import SourceKind
 
 
+@unique
 class GroupBy(StrEnum):
     DAY = "day"
     SOURCE = "source"

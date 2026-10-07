@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from datetime import datetime
 from typing import Protocol, Sequence
 
 from yimba.modules.watches.domain.model import Watch
@@ -20,3 +21,6 @@ class WatchRepository(Protocol):
     async def list_for_owner(self, owner_id: str, params: PageParams, search: str | None = None) -> Page[Watch]: ...
 
     async def list_active(self) -> Sequence[Watch]: ...
+
+    async def deactivate_for_owner(self, owner_id: str, now: datetime) -> int:
+        """Pause every watch of an owner; return how many were active."""

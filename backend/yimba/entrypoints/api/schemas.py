@@ -7,6 +7,7 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from yimba.modules.alerts.public import Alert
 from yimba.modules.analysis.public import Emotion, SentimentLabel
+from yimba.modules.identity.public import Role, TokenPair, User
 from yimba.modules.mentions.application.ports import Counts, Stats
 from yimba.modules.mentions.domain.model import Mention
 from yimba.modules.watches.domain.model import ALLOWED_FREQUENCIES_MINUTES, Watch
@@ -202,3 +203,71 @@ class AlertOut(BaseModel):
             triggered_at=alert.triggered_at,
             acknowledged_at=alert.acknowledged_at,
         )
+
+
+# ---- authentication and accounts -----------------------------------------------------------------------------------
+
+
+class RegisterIn(BaseModel):
+    email: str = Field(max_length=254)
+    password: str = Field(max_length=1024, description="Length set by MIN_PASSWORD_LENGTH and MAX_PASSWORD_LENGTH")
+    full_name: str | None = Field(None, max_length=200)
+
+
+class LoginIn(BaseModel):
+    email: str = Field(max_length=254)
+    password: str = Field(max_length=1024)
+
+
+class RefreshIn(BaseModel):
+    refresh_token: str = Field(max_length=128)
+
+
+class PasswordChangeIn(BaseModel):
+    current_password: str = Field(max_length=1024)
+    new_password: str = Field(max_length=1024)
+
+
+class TokenOut(BaseModel):
+    access_token: str
+    token_type: str
+    expires_in: int = Field(description="Lifetime of the access token, in seconds")
+    refresh_token: str
+
+    @classmethod
+    def of(cls, pair: TokenPair) -> "TokenOut":
+        return cls(
+            access_token=pair.access_token,
+            token_type=pair.token_type,
+            expires_in=pair.expires_in,
+            refresh_token=pair.refresh_token,
+        )
+
+
+class UserOut(BaseModel):
+    id: str
+    email: str
+    full_name: str | None
+    role: Role
+    active: bool
+    created_at: datetime
+    last_login_at: datetime | None
+    deleted_at: datetime | None
+
+    @classmethod
+    def of(cls, user: User) -> "UserOut":
+        return cls(
+            id=user.id,
+            email=user.email,
+            full_name=user.full_name,
+            role=user.role,
+            active=user.active,
+            created_at=user.created_at,
+            last_login_at=user.last_login_at,
+            deleted_at=user.deleted_at,
+        )
+
+
+class UserUpdateIn(BaseModel):
+    role: Role | None = None
+    active: bool | None = None

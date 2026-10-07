@@ -1,21 +1,25 @@
 from __future__ import annotations
 
 from functools import lru_cache
-from pathlib import Path
 from urllib.parse import urljoin
 
 from pydantic import model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 _DEV_SALT = "dev-only-change-me"
-# The repository's .env sits at the monorepo root (shared with docker compose); a backend/.env may override it.
-_ROOT_ENV_FILE = Path(__file__).resolve().parents[2] / ".env"
+_DEV_JWT_SECRET = "dev-only-jwt-secret-change-me-in-production"
+# Values that are not secrets: the development defaults and the placeholders of .env.example.
+_PLACEHOLDERS = {_DEV_SALT, _DEV_JWT_SECRET, "changeme", "change-me", "secret"}
 
 
 class Settings(BaseSettings):
-    """Every setting comes from an UPPERCASE environment variable of the same name, or from a ``.env`` file."""
+    """Every setting comes from an UPPERCASE environment variable of the same name.
 
-    model_config = SettingsConfigDict(env_file=(_ROOT_ENV_FILE, ".env"), extra="ignore", case_sensitive=True)
+    No .env file is read here: docker compose passes the variables listed in its x-app-env, and the root Makefile
+    exports the .env for local commands.
+    """
+
+    model_config = SettingsConfigDict(case_sensitive=True)
 
     APP_ENV: str = "dev"
     API_HOST: str = "0.0.0.0"
@@ -26,7 +30,20 @@ class Settings(BaseSettings):
     DATABASE_URL: str = "sqlite+aiosqlite:///./yimba.db"
     REDIS_URL: str = "redis://localhost:6379/0"
 
-    # Existing auth microservice (same variable names as before).
+    # Authentication: "local" accounts in this database (JWT), or the legacy "remote" auth microservice.
+    AUTH_PROVIDER: str = "local"
+    JWT_SECRET: str = _DEV_JWT_SECRET
+    ACCESS_TOKEN_MINUTES: int = 15
+    REFRESH_TOKEN_DAYS: int = 30
+    REGISTRATION_ENABLED: bool = True
+    # After this many wrong passwords in a row, the account refuses logins for LOGIN_LOCK_MINUTES.
+    LOGIN_MAX_FAILURES: int = 5
+    LOGIN_LOCK_MINUTES: int = 15
+    # Accepted password lengths (any characters): 8 <= MIN_PASSWORD_LENGTH <= MAX_PASSWORD_LENGTH <= 1024.
+    MIN_PASSWORD_LENGTH: int = 10
+    MAX_PASSWORD_LENGTH: int = 128
+
+    # Legacy auth microservice, used only when AUTH_PROVIDER=remote (same variable names as before).
     API_AUTH_URL_BASE: str = "http://auth:9077"
     CHECK_USERINFO_URL: str = "/check-validate-access-token"
     CHECK_ACCESS_URL: str = "/check-access"
@@ -67,8 +84,20 @@ class Settings(BaseSettings):
 
     @model_validator(mode="after")
     def _require_real_secrets_in_production(self) -> "Settings":
-        if self.is_production and self.AUTHOR_HASH_SALT == _DEV_SALT:
-            raise ValueError("AUTHOR_HASH_SALT must be set in production")
+        if self.AUTH_PROVIDER not in {"local", "remote"}:
+            raise ValueError("AUTH_PROVIDER must be 'local' or 'remote'")
+        if not 8 <= self.MIN_PASSWORD_LENGTH <= self.MAX_PASSWORD_LENGTH <= 1024:
+            raise ValueError("password lengths must satisfy 8 <= MIN_PASSWORD_LENGTH <= MAX_PASSWORD_LENGTH <= 1024")
+        # An empty value (as in .env.example) means "not set".
+        self.AUTHOR_HASH_SALT = self.AUTHOR_HASH_SALT or _DEV_SALT
+        self.JWT_SECRET = self.JWT_SECRET or _DEV_JWT_SECRET
+        if self.is_production:
+            if self.AUTHOR_HASH_SALT.lower() in _PLACEHOLDERS:
+                raise ValueError("AUTHOR_HASH_SALT must be set in production")
+            if self.AUTH_PROVIDER == "local" and (
+                self.JWT_SECRET.lower() in _PLACEHOLDERS or len(self.JWT_SECRET) < 32
+            ):
+                raise ValueError("JWT_SECRET must be set in production, at least 32 random characters")
         return self
 
     @property

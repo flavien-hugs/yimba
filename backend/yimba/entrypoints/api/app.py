@@ -10,7 +10,7 @@ from fastapi.responses import JSONResponse
 from yimba import __version__
 from yimba.bootstrap import Container
 from yimba.config import Settings, get_settings
-from yimba.entrypoints.api.routers import alerts, health, mentions, watches
+from yimba.entrypoints.api.routers import alerts, auth, health, mentions, users, watches
 from yimba.infrastructure.error_tracking import init_error_tracking
 from yimba.shared.errors import (
     Conflict,
@@ -55,7 +55,13 @@ def create_app(settings: Settings | None = None, container: Container | None = N
             if owns_container:
                 await app.state.container.aclose()
 
-    app = FastAPI(title="Yimba API", version=__version__, lifespan=lifespan)
+    app = FastAPI(
+        title="Yimba API",
+        version=__version__,
+        lifespan=lifespan,
+        docs_url="/yimba/docs" if settings.APP_ENV not in ("production", "prod") else None,
+        redoc_url="/yimba/redoc" if settings.APP_ENV in ("production", "prod") else None,
+    )
     if container is not None:
         app.state.container = container
 
@@ -73,6 +79,6 @@ def create_app(settings: Settings | None = None, container: Container | None = N
             logger.error("External service error: %s", error.message)
         return JSONResponse(status_code=_status_for(error), content={"code": error.code, "message": error.message})
 
-    for module in (health, watches, mentions, alerts):
+    for module in (health, auth, users, watches, mentions, alerts):
         app.include_router(module.router)
     return app
