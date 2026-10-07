@@ -111,14 +111,14 @@ jobs:
         with:
           context: backend
           load: true
-          tags: yimba-api:ci
+          tags: yimba-backend:ci
           cache-from: type=gha,scope=image
           cache-to: type=gha,mode=max,scope=image
 
       - name: Smoke test
         run: |
-          docker run --rm yimba-api:ci --help
-          docker run --rm --entrypoint python yimba-api:ci -c "import yimba.entrypoints.api.app, yimba.entrypoints.worker.app"
+          docker run --rm yimba-backend:ci --help
+          docker run --rm --entrypoint python yimba-backend:ci -c "import yimba.entrypoints.api.app, yimba.entrypoints.worker.app"
 
   publish:
     needs: [check, image]

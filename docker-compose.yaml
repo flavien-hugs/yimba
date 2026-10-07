@@ -23,7 +23,7 @@ x-app-env: &app-env
 x-app: &app
     <<: *logging
     build: ./backend
-    image: "ghcr.io/flavien-hugs/yimba-api:${IMAGE_VERSION:-dev}"
+    image: "ghcr.io/flavien-hugs/yimba-backend:${IMAGE_VERSION:-dev}"
     restart: unless-stopped
     init: true # PID 1 forwards signals and reaps the Celery children
     env_file:
@@ -76,7 +76,7 @@ services:
             context: ./backend
             args:
                 EXTRAS: "${EXTRAS:-}"
-        image: "ghcr.io/flavien-hugs/yimba-api:${IMAGE_VERSION:-dev}${EXTRAS:+-ml}"
+        image: "ghcr.io/flavien-hugs/yimba-backend:${IMAGE_VERSION:-dev}${EXTRAS:+-ml}"
         # One child by default: collections run one at a time. Each child with transformers holds the model in memory
         # (the weights are shared, about 1.1 GB, plus about 150 MB per child).
         command: ["worker", "--concurrency", "${WORKER_CONCURRENCY:-1}"]

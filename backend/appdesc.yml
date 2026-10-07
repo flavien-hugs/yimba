@@ -1,5 +1,5 @@
 - app:
-    name: "yimba-api"
+    name: "yimba-backend"
     title:
         fr: "Service de veille d'opinion Yimba"
         en: "Yimba opinion monitoring service"

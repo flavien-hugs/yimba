@@ -1,5 +1,5 @@
 [tool.poetry]
-name = "yimba-api"
+name = "yimba-backend"
 version = "0.2.0"
 description = "Yimba: veille d'opinion et d'émotions en ligne pour l'aide à la décision"
 authors = ["haf <flavienhugs@incubtek.com>"]
