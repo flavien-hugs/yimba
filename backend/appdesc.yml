@@ -1,0 +1,46 @@
+- app:
+    name: "yimba-api"
+    title:
+        fr: "Service de veille d'opinion Yimba"
+        en: "Yimba opinion monitoring service"
+    permissions:
+        -
+            code: "watch:can-create"
+            desc:
+                fr: "Peut créer une veille"
+                en: "Can create a watch"
+        -
+            code: "watch:can-read"
+            desc:
+                fr: "Peut consulter ses veilles"
+                en: "Can read its watches"
+        -
+            code: "watch:can-update"
+            desc:
+                fr: "Peut modifier une veille"
+                en: "Can update a watch"
+        -
+            code: "watch:can-delete"
+            desc:
+                fr: "Peut supprimer une veille"
+                en: "Can delete a watch"
+        -
+            code: "mention:can-read"
+            desc:
+                fr: "Peut consulter les mentions collectées d'une veille"
+                en: "Can read the mentions collected for a watch"
+        -
+            code: "mention:can-read-statistics"
+            desc:
+                fr: "Peut consulter les statistiques de sentiment et d'émotion d'une veille"
+                en: "Can read the sentiment and emotion statistics of a watch"
+        -
+            code: "alert:can-read"
+            desc:
+                fr: "Peut consulter les alertes d'une veille"
+                en: "Can read the alerts of a watch"
+        -
+            code: "alert:can-acknowledge"
+            desc:
+                fr: "Peut marquer une alerte comme traitée"
+                en: "Can acknowledge an alert"

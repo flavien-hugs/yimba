@@ -1,0 +1,15 @@
+# Build context of the backend image (docker compose: build ./backend).
+# Allowlist: only what the Dockerfile copies. Tests, .env and other secrets, local databases, virtualenvs and caches
+# never reach the build or the image.
+*
+!pyproject.toml
+!poetry.lock
+!alembic.ini
+!appdesc.yml
+!yimba/
+!migrations/
+
+# Inside the allowed directories
+**/__pycache__
+**/*.py[co]
+**/.DS_Store

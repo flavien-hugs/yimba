@@ -32,8 +32,7 @@ coverage.xml
 .pytest_cache/
 cover/
 
-# poetry
-poetry.lock
+# poetry (poetry.lock is versioned: the Docker build installs exactly what it pins)
 
 # SageMath parsed files
 *.sage.py
@@ -201,5 +200,23 @@ dmypy.json
 !*.secret
 k8s/secrets.yml
 *.lock
+!poetry.lock
 notebook.ipynb
 dotenv/
+
+# local database
+*.db
+
+# Frontend (Node)
+node_modules/
+.pnpm-store/
+frontend/dist/
+frontend/build/
+frontend/.vite/
+frontend/coverage/
+*.tsbuildinfo
+
+# dbt (local runs)
+analytics/dbt/target/
+analytics/dbt/logs/
+analytics/dbt/dbt_packages/

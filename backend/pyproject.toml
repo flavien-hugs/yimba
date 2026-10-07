@@ -1,0 +1,125 @@
+[tool.poetry]
+name = "yimba-api"
+version = "0.2.0"
+description = "Yimba: veille d'opinion et d'émotions en ligne pour l'aide à la décision"
+authors = ["haf <flavienhugs@incubtek.com>"]
+packages = [{include = "yimba"}]
+
+[tool.poetry.dependencies]
+python = "^3.12"
+# Not fastapi[standard]: it adds the fastapi CLIs, cloud tooling, OpenTelemetry, Jinja... that the API never uses.
+fastapi = ">=0.115"
+uvicorn = {version = ">=0.30", extras = ["standard"]}
+pydantic = "^2.8"
+pydantic-settings = "^2.4"
+sqlalchemy = {version = "^2.0.30", extras = ["asyncio"]}
+asyncpg = "^0.29"
+alembic = "^1.13"
+httpx = "^0.27"
+celery = {version = "^5.4", extras = ["redis"]}
+flower = "^2.0"
+defusedxml = "^0.7"
+typer = ">=0.12"
+sentry-sdk = {extras = ["fastapi"], version = "^2.13.0"}
+# Optional: "ml" for the transformers sentiment engine (CPU build of torch), "tracking" to record evaluations
+# on MLflow. Docker: build with EXTRAS="ml tracking".
+transformers = {version = "^5.19", optional = true}
+torch = {version = "^2.4", optional = true, source = "pytorch-cpu"}
+sentencepiece = {version = ">=0.2", optional = true} # XLM-RoBERTa tokenizers
+protobuf = {version = ">=5", optional = true}
+mlflow-skinny = {version = "^3.16", optional = true}
+
+[tool.poetry.extras]
+ml = ["transformers", "torch", "sentencepiece", "protobuf"]
+tracking = ["mlflow-skinny"]
+
+[[tool.poetry.source]]
+name = "pytorch-cpu"
+url = "https://download.pytorch.org/whl/cpu"
+priority = "explicit"
+
+[tool.poetry.group.dev.dependencies]
+pytest = "^8.3"
+pytest-asyncio = "^0.24"
+aiosqlite = "^0.20"
+import-linter = "^2.0"
+pre-commit = "^3.6.0"
+isort = "^5.13.2"
+black = "^24.3"
+flake8 = "^7.0"
+
+[tool.poetry.scripts]
+yimba = "yimba.entrypoints.cli:app"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.black]
+line-length = 120
+include = '\.pyi?$'
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
+pythonpath = ["."]
+
+# Architecture rules, checked with `lint-imports` (make lint-arch).
+[tool.importlinter]
+root_package = "yimba"
+include_external_packages = true
+
+[[tool.importlinter.contracts]]
+name = "Inside each module: adapters -> application -> domain, never the other way"
+type = "layers"
+layers = ["adapters", "application", "domain"]
+containers = [
+    "yimba.modules.analysis",
+    "yimba.modules.watches",
+    "yimba.modules.mentions",
+    "yimba.modules.collection",
+    "yimba.modules.alerts",
+    "yimba.modules.identity",
+]
+
+[[tool.importlinter.contracts]]
+name = "Modules depend downwards only (siblings are independent)"
+type = "layers"
+layers = [
+    "yimba.modules.alerts | yimba.modules.collection",
+    "yimba.modules.mentions | yimba.modules.watches",
+    "yimba.modules.analysis | yimba.modules.identity",
+]
+
+[[tool.importlinter.contracts]]
+name = "Domain code is pure: no framework, database or HTTP client"
+type = "forbidden"
+source_modules = [
+    "yimba.modules.analysis.domain",
+    "yimba.modules.watches.domain",
+    "yimba.modules.mentions.domain",
+    "yimba.modules.collection.domain",
+    "yimba.modules.alerts.domain",
+    "yimba.modules.identity.domain",
+    "yimba.shared",
+]
+forbidden_modules = ["sqlalchemy", "fastapi", "httpx", "celery", "pydantic"]
+
+[[tool.importlinter.contracts]]
+name = "Application code does not know the framework or the database"
+type = "forbidden"
+source_modules = [
+    "yimba.modules.analysis.application",
+    "yimba.modules.watches.application",
+    "yimba.modules.mentions.application",
+    "yimba.modules.collection.application",
+    "yimba.modules.alerts.application",
+    "yimba.modules.identity.application",
+]
+forbidden_modules = ["sqlalchemy", "fastapi", "httpx", "celery"]
+
+[[tool.importlinter.contracts]]
+name = "Modules never import the entrypoints or the composition root"
+type = "forbidden"
+source_modules = ["yimba.modules", "yimba.shared", "yimba.infrastructure"]
+forbidden_modules = ["yimba.entrypoints", "yimba.bootstrap"]

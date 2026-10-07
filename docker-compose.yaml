@@ -1,169 +1,219 @@
-version: "3.9"
+x-infra: &infra
+    postgres:
+        condition: service_healthy
+    redis:
+        condition: service_healthy
+
+x-app: &app
+    build: ./backend
+    image: "ghcr.io/flavien-hugs/yimba-api:${IMAGE_VERSION:-dev}"
+    restart: unless-stopped
+    init: true # PID 1 forwards signals and reaps the Celery children
+    env_file:
+        - path: .env
+          required: false
+    environment:
+        DATABASE_URL: "postgresql+asyncpg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}"
+        REDIS_URL: "redis://redis:6379/0"
+    depends_on: *infra
+
+# The services that use the tables start once the migrations are applied.
+x-after-migrate: &after-migrate
+    <<: *infra
+    migrate:
+        condition: service_completed_successfully
 
 services:
-    project:
-        build:
-            context: .
-            dockerfile: Dockerfile
-        restart: unless-stopped
-        command: poetry run yimba service run project
-        volumes:
-            - ./src/services/routers/project/:/app/src/services/routers/project
-        depends_on:
-            - mongo
-        ports:
-            - "8091:${API_PORT}"
-        env_file:
-            - ./dotenv/dev.env
+    migrate:
+        <<: *app
+        restart: "no"
+        command: ["db-upgrade"]
 
-    facebook:
-        build:
-            context: .
-            dockerfile: Dockerfile
-        restart: unless-stopped
-        command: poetry run yimba service run facebook
-        volumes:
-            - ./src/services/routers/facebook/:/app/src/services/routers/facebook
-        depends_on:
-            - mongo
+    api:
+        <<: *app
+        command: ["api"]
+        depends_on: *after-migrate
         ports:
-            - "8092:${API_PORT}"
-        env_file:
-            - ./dotenv/dev.env
+            - "${APP_PORT:-8800}:8800"
+        healthcheck:
+            test: ["CMD", "python", "-c", "import urllib.request as u; u.urlopen('http://localhost:8800/@ping')"]
+            interval: 10s
+            timeout: 3s
+            retries: 5
 
-    tiktok:
+    worker:
+        <<: *app
+        # EXTRAS="ml tracking" (transformers, torch CPU, MLflow client) goes into the worker image only, tagged "-ml";
+        # the other services keep the small image.
         build:
-            context: .
-            dockerfile: Dockerfile
-        restart: unless-stopped
-        command: poetry run yimba service run tiktok
+            context: ./backend
+            args:
+                EXTRAS: "${EXTRAS:-}"
+        image: "ghcr.io/flavien-hugs/yimba-api:${IMAGE_VERSION:-dev}${EXTRAS:+-ml}"
+        command: ["worker", "--concurrency", "2"]
+        depends_on: *after-migrate
         volumes:
-            - ./src/services/routers/tiktok/:/app/src/services/routers/tiktok
-        depends_on:
-            - mongo
-        ports:
-            - "8093:${API_PORT}"
-        env_file:
-            - ./dotenv/dev.env
+            - models:/models # transformers models, downloaded once (HF_HOME)
 
-    twitter:
-        build:
-            context: .
-            dockerfile: Dockerfile
-        restart: unless-stopped
-        command: poetry run yimba service run twitter
-        volumes:
-            - ./src/services/routers/twitter/:/app/src/services/routers/twitter
-        depends_on:
-            - mongo
-        ports:
-            - "8094:${API_PORT}"
-        env_file:
-            - ./dotenv/dev.env
+    beat:
+        <<: *app
+        command: ["beat"]
+        depends_on: *after-migrate
 
-    instagram:
-        build:
-            context: .
-            dockerfile: Dockerfile
-        restart: unless-stopped
-        command: poetry run yimba service run instagram
-        volumes:
-            - ./src/services/routers/instagram/:/app/src/services/routers/instagram
-        depends_on:
-            - mongo
+    # Celery web UI (workers, queue, tasks). Bound to localhost; set FLOWER_BASIC_AUTH.
+    flower:
+        <<: *app
+        command: ["flower"]
         ports:
-            - "8095:${API_PORT}"
-        env_file:
-            - ./dotenv/dev.env
+            - "127.0.0.1:${FLOWER_PORT:-5555}:5555"
 
-    google:
-        build:
-            context: .
-            dockerfile: Dockerfile
-        restart: unless-stopped
-        command: poetry run yimba service run google
-        volumes:
-            - ./src/services/routers/google/:/app/src/services/routers/google
-        depends_on:
-            - mongo
-        ports:
-            - "8096:${API_PORT}"
-        env_file:
-            - ./dotenv/dev.env
-
-    youtube:
-        build:
-            context: .
-            dockerfile: Dockerfile
-        restart: unless-stopped
-        command: poetry run yimba service run youtube
-        volumes:
-            - ./src/services/routers/youtube/:/app/src/services/routers/youtube
-        depends_on:
-            - mongo
-        ports:
-            - "8097:${API_PORT}"
-        env_file:
-            - ./dotenv/dev.env
-
-    analyse:
-        build:
-            context: .
-            dockerfile: Dockerfile
-        restart: unless-stopped
-        command: poetry run yimba service run analyse
-        volumes:
-            - ./src/services/routers/analyse/:/app/src/services/routers/analyse
-        depends_on:
-            - mongo
-        ports:
-            - "8098:${API_PORT}"
-        env_file:
-            - ./dotenv/dev.env
-
-    cloudtags:
-        build:
-            context: .
-            dockerfile: Dockerfile
-        restart: unless-stopped
-        command: poetry run yimba service run cloudtags
-        volumes:
-            - ./src/services/routers/cloudtags/:/app/src/services/routers/cloudtags
-        depends_on:
-            - mongo
-        ports:
-            - "8100:${API_PORT}"
-        env_file:
-            - ./dotenv/dev.env
-
-    rapport:
-        build:
-            context: .
-            dockerfile: Dockerfile
-        restart: unless-stopped
-        command: poetry run yimba service run rapport
-        volumes:
-            - ./src/services/routers/rapport/:/app/src/services/routers/rapport
-        depends_on:
-            - mongo
-        ports:
-            - "8101:${API_PORT}"
-        env_file:
-            - ./dotenv/dev.env
-
-    mongo:
-        image: mongo:jammy
+    postgres:
+        image: postgres:16
         restart: unless-stopped
         environment:
-            MONGO_DB: "${MONGO_DB}"
-            MONGO_USER: "${MONGO_USER}"
-            MONGO_PASSWORD: "${MONGO_PASSWORD}"
-            MONGO_INITDB_ROOT_USERNAME: "${MONGO_USER}"
-            MONGO_INITDB_ROOT_PASSWORD: "${MONGO_PASSWORD}"
-        ports:
-          - "27022:${MONGO_PORT}"
+            POSTGRES_DB: "${POSTGRES_DB}"
+            POSTGRES_USER: "${POSTGRES_USER}"
+            POSTGRES_PASSWORD: "${POSTGRES_PASSWORD}"
         volumes:
-            - yimba_apifydb_data:/data/db
+            - yimba_pg:/var/lib/postgresql/data
+        healthcheck:
+            test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+            interval: 5s
+            timeout: 3s
+            retries: 10
+
+    redis:
+        image: redis:7-alpine
+        restart: unless-stopped
+        healthcheck:
+            test: ["CMD", "redis-cli", "ping"]
+            interval: 5s
+            timeout: 3s
+            retries: 10
+
+    # ---- error tracking (optional): docker compose --profile observability up -------------------------------
+    # GlitchTip, self-hosted and open source, speaks the Sentry protocol. Create a project in its UI, then set
+    # SENTRY_DSN=http://<key>@glitchtip:8000/<project> (host "glitchtip", not localhost, from the containers).
+    glitchtip:
+        image: glitchtip/glitchtip:6
+        profiles: ["observability"]
+        restart: unless-stopped
+        depends_on:
+            - glitchtip-postgres
+        environment:
+            DATABASE_URL: "postgres://glitchtip:${GLITCHTIP_DB_PASSWORD:-glitchtip}@glitchtip-postgres:5432/glitchtip"
+            VALKEY_URL: "" # no Valkey: tasks and cache go through PostgreSQL (lighter)
+            SECRET_KEY: "${GLITCHTIP_SECRET_KEY:-}"
+            GLITCHTIP_DOMAIN: "${GLITCHTIP_DOMAIN:-http://localhost:8000}"
+            DEFAULT_FROM_EMAIL: "${GLITCHTIP_FROM_EMAIL:-glitchtip@localhost}"
+            EMAIL_URL: "${GLITCHTIP_EMAIL_URL:-consolemail://}"
+            SERVER_ROLE: all_in_one
+        ports:
+            - "127.0.0.1:${GLITCHTIP_PORT:-8000}:8000"
+        volumes:
+            - glitchtip_uploads:/code/uploads
+
+    glitchtip-postgres:
+        image: postgres:18
+        profiles: ["observability"]
+        restart: unless-stopped
+        environment:
+            POSTGRES_DB: glitchtip
+            POSTGRES_USER: glitchtip
+            POSTGRES_PASSWORD: "${GLITCHTIP_DB_PASSWORD:-glitchtip}"
+        volumes:
+            - glitchtip_pg:/var/lib/postgresql
+
+    # ---- analytics (optional): docker compose --profile analytics run --rm analytics ------------------------
+    # dbt builds and tests the marts (schema "analytics"), then Pandera checks their quality.
+    # ANALYTICS_EVERY_SECONDS=3600 with "up -d analytics" repeats the run every hour.
+    analytics:
+        build: ./analytics
+        profiles: ["analytics"]
+        restart: "no"
+        environment:
+            POSTGRES_HOST: postgres
+            POSTGRES_DB: "${POSTGRES_DB}"
+            POSTGRES_USER: "${POSTGRES_USER}"
+            POSTGRES_PASSWORD: "${POSTGRES_PASSWORD}"
+            ANALYTICS_EVERY_SECONDS: "${ANALYTICS_EVERY_SECONDS:-}"
+        depends_on:
+            postgres:
+                condition: service_healthy
+
+    # ---- dashboards (optional): docker compose --profile dashboards up -d ----------------------------------
+    # Apache Superset on http://localhost:8088, reading the marts with the read-only role superset_reader.
+    superset-init:
+        build: ./analytics/superset
+        profiles: ["dashboards"]
+        restart: "no"
+        command: ["/app/yimba-init.sh"]
+        environment: &superset-env
+            SUPERSET_SECRET_KEY: "${SUPERSET_SECRET_KEY:-}"
+            SUPERSET_ADMIN_USERNAME: "${SUPERSET_ADMIN_USERNAME:-admin}"
+            SUPERSET_ADMIN_PASSWORD: "${SUPERSET_ADMIN_PASSWORD:-}"
+            SUPERSET_ADMIN_EMAIL: "${SUPERSET_ADMIN_EMAIL:-admin@localhost}"
+            SUPERSET_READER_PASSWORD: "${SUPERSET_READER_PASSWORD:-}"
+            POSTGRES_DB: "${POSTGRES_DB}"
+        volumes:
+            - superset_home:/app/superset_home
+        depends_on:
+            postgres:
+                condition: service_healthy
+
+    superset:
+        build: ./analytics/superset
+        profiles: ["dashboards"]
+        restart: unless-stopped
+        environment: *superset-env
+        ports:
+            - "127.0.0.1:${SUPERSET_PORT:-8088}:8088"
+        volumes:
+            - superset_home:/app/superset_home
+        depends_on:
+            superset-init:
+                condition: service_completed_successfully
+
+    # ---- annotation (optional): docker compose --profile annotation up -d ----------------------------------
+    # Label Studio Community on http://localhost:8080; tasks come from "yimba annotation export".
+    label-studio:
+        image: heartexlabs/label-studio:1.23.2
+        profiles: ["annotation"]
+        restart: unless-stopped
+        environment:
+            LABEL_STUDIO_USERNAME: "${LABEL_STUDIO_USERNAME:-}"
+            LABEL_STUDIO_PASSWORD: "${LABEL_STUDIO_PASSWORD:-}"
+            LABEL_STUDIO_DISABLE_SIGNUP_WITHOUT_LINK: "true"
+        ports:
+            - "127.0.0.1:${LABEL_STUDIO_PORT:-8080}:8080"
+        volumes:
+            - label_studio_data:/label-studio/data
+
+    # ---- model tracking (optional): docker compose --profile ml up -d ---------------------------------------
+    # MLflow on http://localhost:5000: evaluations of the analyzers ("yimba annotation evaluate").
+    mlflow:
+        image: ghcr.io/mlflow/mlflow:v3.16.1
+        profiles: ["ml"]
+        restart: unless-stopped
+        command:
+            - mlflow
+            - server
+            - --host=0.0.0.0
+            - --port=5000
+            - --backend-store-uri=sqlite:////mlflow/mlflow.db
+            - --artifacts-destination=/mlflow/artifacts
+            # Host headers accepted (DNS rebinding protection): the service name and the published port.
+            - --allowed-hosts=mlflow,mlflow:5000,localhost:${MLFLOW_PORT:-5000},127.0.0.1:${MLFLOW_PORT:-5000}
+        ports:
+            - "127.0.0.1:${MLFLOW_PORT:-5000}:5000"
+        volumes:
+            - mlflow_data:/mlflow
 
 volumes:
-    yimba_apifydb_data: {}
+    yimba_pg:
+    models:
+    superset_home:
+    label_studio_data:
+    mlflow_data:
+    glitchtip_pg:
+    glitchtip_uploads:
