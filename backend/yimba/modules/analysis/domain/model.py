@@ -1,17 +1,19 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from enum import StrEnum
+from enum import StrEnum, unique
 
 UNDETERMINED_LANGUAGE = "und"
 
 
+@unique
 class SentimentLabel(StrEnum):
     POSITIVE = "positive"
     NEUTRAL = "neutral"
     NEGATIVE = "negative"
 
 
+@unique
 class Emotion(StrEnum):
     JOY = "joy"
     ANGER = "anger"

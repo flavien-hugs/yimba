@@ -3,13 +3,14 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
-from enum import StrEnum
+from enum import StrEnum, unique
 from typing import Iterable
 
 from yimba.shared.errors import Forbidden, InvalidInput
 from yimba.shared.ids import new_id
 
 
+@unique
 class Permission(StrEnum):
     """Permission codes checked on every route (also declared in appdesc.yml for the legacy auth service)."""
 
@@ -25,6 +26,7 @@ class Permission(StrEnum):
     USER_MANAGE = "user:can-manage"
 
 
+@unique
 class Role(StrEnum):
     ADMIN = "admin"
     USER = "user"

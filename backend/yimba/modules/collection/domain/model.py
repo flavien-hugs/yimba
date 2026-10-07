@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
-from enum import StrEnum
+from enum import StrEnum, unique
 from typing import Any, Mapping
 
 from yimba.shared.source import SourceKind
@@ -41,6 +41,7 @@ class CollectionTarget:
     limit: int = 50
 
 
+@unique
 class RunStatus(StrEnum):
     RUNNING = "running"
     SUCCEEDED = "succeeded"
