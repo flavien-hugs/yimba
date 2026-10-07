@@ -11,6 +11,7 @@ from yimba.infrastructure.db import Base
 # Importing the persistence adapters registers every table on Base.metadata.
 from yimba.modules.alerts.adapters import persistence as _alerts  # noqa: F401
 from yimba.modules.collection.adapters import persistence as _collection  # noqa: F401
+from yimba.modules.identity.adapters import persistence as _identity  # noqa: F401
 from yimba.modules.mentions.adapters import persistence as _mentions  # noqa: F401
 from yimba.modules.watches.adapters import persistence as _watches  # noqa: F401
 

@@ -32,6 +32,7 @@ celery.conf.update(
     beat_schedule={
         "plan-collections": {"task": "yimba.plan", "schedule": 60.0},
         "purge-raw-items": {"task": "yimba.purge_raw", "schedule": 24 * 3600.0},
+        "purge-refresh-tokens": {"task": "yimba.purge_tokens", "schedule": 24 * 3600.0},
     },
 )
 
@@ -87,4 +88,15 @@ def purge_raw_items() -> int:
 
     purged = _run(work)
     logger.info("Purged %s raw item(s)", purged)
+    return purged
+
+
+@celery.task(name="yimba.purge_tokens")
+def purge_refresh_tokens() -> int:
+    async def work(container: Container) -> int:
+        async with container.session_factory() as session:
+            return await container.accounts(session).purge_expired_tokens()
+
+    purged = _run(work)
+    logger.info("Purged %s expired refresh token(s)", purged)
     return purged

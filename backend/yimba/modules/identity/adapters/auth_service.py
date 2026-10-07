@@ -12,7 +12,7 @@ logger = logging.getLogger(__name__)
 
 
 class AuthServiceAccessControl:
-    """Talks to the auth microservice.
+    """Delegates to the legacy auth microservice (AUTH_PROVIDER=remote); accounts are local by default.
 
     Contract kept from the legacy code:
       * ``GET {userinfo_url}?token=<jwt>`` -> ``{"active": bool, "user_info": {"_id": str, "email": str, ...}}``
@@ -44,7 +44,7 @@ class AuthServiceAccessControl:
             raise Unauthorized("Invalid or expired token", code="identity/invalid-token")
         return Principal(id=str(user["_id"]), email=user.get("email"))
 
-    async def authorize(self, token: str, permissions: Sequence[str]) -> None:
+    async def authorize(self, principal: Principal, token: str, permissions: Sequence[str]) -> None:
         try:
             response = await self._client.get(
                 self._check_access_url,

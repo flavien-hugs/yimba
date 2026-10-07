@@ -16,9 +16,54 @@ x-infra: &infra
     redis:
         condition: service_healthy
 
+# Settings passed to the backend containers. A name without a value takes it from .env (or the shell) and is left
+# out when unset, so the default of backend/yimba/config.py applies. Keep in sync with Settings
+# (backend/tests/test_compose_env.py checks it).
 x-app-env: &app-env
     DATABASE_URL: "postgresql+asyncpg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}"
     REDIS_URL: "redis://redis:6379/0"
+    APP_ENV:
+    CORS_ALLOW_ORIGINS:
+    SENTRY_DSN:
+    # authentication
+    AUTH_PROVIDER:
+    JWT_SECRET:
+    ACCESS_TOKEN_MINUTES:
+    REFRESH_TOKEN_DAYS:
+    REGISTRATION_ENABLED:
+    LOGIN_MAX_FAILURES:
+    LOGIN_LOCK_MINUTES:
+    MIN_PASSWORD_LENGTH:
+    MAX_PASSWORD_LENGTH:
+    API_AUTH_URL_BASE:
+    CHECK_USERINFO_URL:
+    CHECK_ACCESS_URL:
+    # collection
+    NEWS_EXTRA_FEEDS:
+    GDELT_ENABLED:
+    YOUTUBE_API_KEY:
+    YOUTUBE_COMMENT_VIDEOS:
+    BLUESKY_HANDLE:
+    BLUESKY_APP_PASSWORD:
+    BLUESKY_SERVICE:
+    META_ACCESS_TOKEN:
+    META_APP_SECRET:
+    META_GRAPH_VERSION:
+    FACEBOOK_PAGE_IDS:
+    FACEBOOK_COMMENT_POSTS:
+    INSTAGRAM_ACCOUNT_ID:
+    COLLECTION_LIMIT:
+    RAW_RETENTION_DAYS:
+    # analysis and alerts
+    ANALYSIS_ENGINE:
+    ANALYSIS_MODEL:
+    MLFLOW_TRACKING_URI:
+    MLFLOW_EXPERIMENT:
+    AUTHOR_HASH_SALT:
+    ALERT_WINDOW_HOURS:
+    ALERT_COOLDOWN_HOURS:
+    # operations
+    FLOWER_BASIC_AUTH:
 
 x-app: &app
     <<: *logging
@@ -26,9 +71,6 @@ x-app: &app
     image: "ghcr.io/flavien-hugs/yimba-backend:${IMAGE_VERSION:-dev}"
     restart: unless-stopped
     init: true # PID 1 forwards signals and reaps the Celery children
-    env_file:
-        - path: .env
-          required: false
     environment: *app-env
     depends_on: *infra
 

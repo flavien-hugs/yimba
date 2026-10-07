@@ -44,3 +44,13 @@
             desc:
                 fr: "Peut marquer une alerte comme traitée"
                 en: "Can acknowledge an alert"
+        -
+            code: "user:can-read"
+            desc:
+                fr: "Peut consulter la liste des comptes"
+                en: "Can list the accounts"
+        -
+            code: "user:can-manage"
+            desc:
+                fr: "Peut changer le rôle d'un compte ou le désactiver"
+                en: "Can change the role of an account or disable it"

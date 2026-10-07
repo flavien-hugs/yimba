@@ -6,7 +6,10 @@ Interface web de Yimba, à venir. Le framework n'est pas encore choisi ; cette p
 
 - L'API du backend : `http://localhost:8800` en local, schéma OpenAPI sur `/openapi.json` (documentation sur `/docs`).
   Générer le client TypeScript depuis ce schéma plutôt que l'écrire à la main, pour qu'il suive l'API.
-- L'authentification : le jeton du service d'authentification existant, envoyé en `Authorization: Bearer <jeton>`.
+- L'authentification : `POST /auth/register`, puis `POST /auth/login` qui renvoie un jeton d'accès (15 min, à envoyer
+  en `Authorization: Bearer <jeton>`) et un jeton de rafraîchissement (30 jours). Avant l'expiration, `POST /auth/refresh`
+  donne une nouvelle paire (le jeton de rafraîchissement ne sert qu'une fois) ; `POST /auth/logout` ferme la session.
+  Garder le jeton d'accès en mémoire plutôt que dans `localStorage`.
 - CORS : ajouter l'origine du frontend à `CORS_ALLOW_ORIGINS` dans `.env` (par exemple `http://localhost:5173`).
 
 ## Quand il sera créé

@@ -2,7 +2,10 @@ import httpx
 import pytest
 
 from yimba.modules.identity.adapters.auth_service import AuthServiceAccessControl
+from yimba.modules.identity.domain.model import Principal
 from yimba.shared.errors import ExternalServiceError, Forbidden, Unauthorized
+
+PRINCIPAL = Principal(id="u1")
 
 
 def access(handler):
@@ -44,7 +47,7 @@ async def test_auth_service_outages_are_external_errors():
         raise httpx.ConnectError("refused")
 
     with pytest.raises(ExternalServiceError):
-        await access(down).authorize("tok", ["watch:can-read"])
+        await access(down).authorize(PRINCIPAL, "tok", ["watch:can-read"])
 
 
 async def test_authorize_forwards_token_and_permissions():
@@ -55,12 +58,12 @@ async def test_authorize_forwards_token_and_permissions():
         seen["permissions"] = request.url.params.get_list("permission")
         return httpx.Response(200)
 
-    await access(handler).authorize("tok", ["a:b", "c:d"])
+    await access(handler).authorize(PRINCIPAL, "tok", ["a:b", "c:d"])
     assert seen == {"auth": "Bearer tok", "permissions": ["a:b", "c:d"]}
 
 
 async def test_authorize_maps_denials():
     with pytest.raises(Forbidden):
-        await access(lambda request: httpx.Response(403)).authorize("tok", ["a:b"])
+        await access(lambda request: httpx.Response(403)).authorize(PRINCIPAL, "tok", ["a:b"])
     with pytest.raises(Unauthorized):
-        await access(lambda request: httpx.Response(401)).authorize("tok", ["a:b"])
+        await access(lambda request: httpx.Response(401)).authorize(PRINCIPAL, "tok", ["a:b"])

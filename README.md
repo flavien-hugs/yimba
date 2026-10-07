@@ -38,7 +38,7 @@ cp .env.example .env
 |---|---|
 | `POSTGRES_PASSWORD` | mot de passe de la base |
 | `AUTHOR_HASH_SALT` | sel des empreintes d'auteurs ; obligatoire en production, à ne plus jamais changer |
-| `API_AUTH_URL_BASE` | adresse du service d'authentification : chaque requête de l'API y vérifie le jeton |
+| `JWT_SECRET` | signe les jetons d'accès : 32 caractères aléatoires au moins (`openssl rand -base64 48`) |
 | `CORS_ALLOW_ORIGINS` | origines autorisées (le frontend) |
 | `FLOWER_BASIC_AUTH` | identifiants de Flower, si on le lance |
 
@@ -54,13 +54,21 @@ make run          # ou : docker compose up -d --build
 La migration de la base s'applique d'abord, puis l'API, le worker et beat démarrent. L'API écoute sur
 `http://localhost:8800` (documentation sur `/docs`, sonde `/@ping`).
 
-**3. Créer une veille**, avec un jeton délivré par le service d'authentification :
+**3. Créer un compte, se connecter, créer une veille**
 
 ```sh
+# Le premier admin (mot de passe demandé) ; les autres comptes peuvent s'inscrire par POST /auth/register.
+docker compose exec api python -m yimba.entrypoints.cli user create admin@exemple.org --role admin
+
+TOKEN=$(curl -s -X POST http://localhost:8800/auth/login -H "Content-Type: application/json" \
+    -d '{"email": "admin@exemple.org", "password": "<mot de passe>"}' | python3 -c "import sys, json; print(json.load(sys.stdin)['access_token'])")
+
 curl -X POST http://localhost:8800/watches \
     -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" \
     -d '{"name": "Santé", "keywords": ["vaccination"], "sources": ["news", "gdelt"], "frequency_minutes": 60}'
 ```
+
+Le jeton d'accès dure 15 minutes ; `POST /auth/refresh` en donne un nouveau à partir du jeton de rafraîchissement.
 
 Beat planifie la collecte dans la minute ; les résultats arrivent sur `/watches/{id}/mentions`, `/stats` et `/alerts`.
 Pour collecter tout de suite : `docker compose exec worker python -m yimba.entrypoints.cli collect <watch_id> news`.
@@ -159,7 +167,8 @@ make check          # backend : black, isort, flake8, règles d'architecture, te
 
 ## Ce qui reste à faire avant la production
 
-- Valider le contrat avec le service d'authentification (`AuthServiceAccessControl`, voir sa docstring).
+- Authentification : vérification de l'adresse email et mot de passe oublié (il faut un envoi d'emails), limitation
+  du nombre d'inscriptions par adresse IP si l'inscription reste ouverte.
 - Valider les collecteurs YouTube, Bluesky, Facebook et Instagram avec de vrais identifiants (testés sur les formats
   documentés des API) ; créer l'application Meta, faire la vérification d'entreprise et l'App Review.
 - Annoter un corpus français et nouchi, évaluer lexique et transformers dessus (`yimba annotation`), choisir le moteur.

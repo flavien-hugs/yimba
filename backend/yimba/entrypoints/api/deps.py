@@ -2,12 +2,13 @@ from __future__ import annotations
 
 from typing import AsyncIterator, Awaitable, Callable
 
-from fastapi import Depends, Header, Request
+from fastapi import Depends, Request
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from yimba.bootstrap import Container
 from yimba.modules.alerts.public import AcknowledgeAlert, ListAlerts, SqlAlertRepository
-from yimba.modules.identity.public import Principal
+from yimba.modules.identity.public import AccountService, Principal
 from yimba.modules.mentions.adapters.persistence import SqlMentionRepository
 from yimba.modules.mentions.application.use_cases import ComputeStats, SearchMentions
 from yimba.modules.watches.adapters.persistence import SqlWatchRepository
@@ -24,11 +25,13 @@ async def get_session(container: Container = Depends(get_container)) -> AsyncIte
         yield session
 
 
-def bearer_token(authorization: str | None = Header(default=None)) -> str:
-    scheme, _, token = (authorization or "").partition(" ")
-    if scheme.lower() != "bearer" or not token:
+_bearer = HTTPBearer(auto_error=False, description="Access token from POST /auth/login")
+
+
+def bearer_token(credentials: HTTPAuthorizationCredentials | None = Depends(_bearer)) -> str:
+    if credentials is None or not credentials.credentials:
         raise Unauthorized("Missing bearer token", code="identity/missing-token")
-    return token
+    return credentials.credentials
 
 
 def require(*permissions: str) -> Callable[..., Awaitable[Principal]]:
@@ -39,13 +42,17 @@ def require(*permissions: str) -> Callable[..., Awaitable[Principal]]:
     ) -> Principal:
         principal = await container.access_control.authenticate(token)
         if permissions:
-            await container.access_control.authorize(token, permissions)
+            await container.access_control.authorize(principal, token, permissions)
         return principal
 
     return dependency
 
 
 # ---- use cases bound to the request's session ---------------------------------------------------------------------
+
+
+def accounts(c: Container = Depends(get_container), s: AsyncSession = Depends(get_session)) -> AccountService:
+    return c.accounts(s)
 
 
 def create_watch(c: Container = Depends(get_container), s: AsyncSession = Depends(get_session)) -> CreateWatch:
