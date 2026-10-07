@@ -3,6 +3,7 @@ from __future__ import annotations
 import httpx
 
 from yimba.modules.collection.adapters.bluesky import DEFAULT_SERVICE, BlueskyCollector
+from yimba.modules.collection.adapters.gdelt import GdeltCollector
 from yimba.modules.collection.adapters.meta import (
     DEFAULT_VERSION,
     FacebookPagesCollector,
@@ -19,6 +20,7 @@ def build_collectors(
     *,
     http_client: httpx.AsyncClient,
     extra_news_feeds: tuple[str, ...] = (),
+    gdelt: bool = True,
     youtube_api_key: str | None = None,
     youtube_comment_videos: int = 5,
     bluesky_handle: str | None = None,
@@ -33,6 +35,8 @@ def build_collectors(
 ) -> CollectorRegistry:
     """Build the registry. A source whose credentials are not configured simply has no collector."""
     registry: dict[SourceKind, object] = {SourceKind.NEWS: RssNewsCollector(http_client, extra_news_feeds)}
+    if gdelt:
+        registry[SourceKind.GDELT] = GdeltCollector(http_client)
     if youtube_api_key:
         registry[SourceKind.YOUTUBE] = YouTubeCollector(http_client, youtube_api_key, youtube_comment_videos)
     if bluesky_handle and bluesky_app_password:

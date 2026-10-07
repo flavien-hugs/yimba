@@ -69,6 +69,7 @@ class Container:
         return build_collectors(
             http_client=self.http,
             extra_news_feeds=s.extra_news_feeds,
+            gdelt=s.GDELT_ENABLED,
             youtube_api_key=s.YOUTUBE_API_KEY,
             youtube_comment_videos=s.YOUTUBE_COMMENT_VIDEOS,
             bluesky_handle=s.BLUESKY_HANDLE,

@@ -12,6 +12,7 @@ Uniquement des API officielles : ni scraping, ni revendeur de données. Une sour
 | Source | API | Identifiants (`.env`) | Ce qui est collecté | Limites |
 |---|---|---|---|---|
 | `news` | Google News RSS + flux RSS ajoutés | aucun (`NEWS_EXTRA_FEEDS`) | articles | — |
+| `gdelt` | GDELT DOC 2.0 (presse mondiale) | aucun (`GDELT_ENABLED`) | titres d'articles des dernières 24 h | une requête toutes les 5 s par adresse IP (nouvel essai automatique) |
 | `youtube` | YouTube Data API v3 | `YOUTUBE_API_KEY` | vidéos et commentaires des premières vidéos | 10 000 unités/jour, ~106 par mot-clé : fréquence 6 h ou 24 h |
 | `bluesky` | AT Protocol | `BLUESKY_HANDLE`, `BLUESKY_APP_PASSWORD` | publications | — |
 | `facebook` | Graph API (Pages) | `META_ACCESS_TOKEN`, `FACEBOOK_PAGE_IDS` | publications des Pages suivies qui citent un mot-clé, et leurs commentaires | pas de recherche sur tout Facebook ; Pages non gérées : fonctionnalité « Page Public Content Access » |

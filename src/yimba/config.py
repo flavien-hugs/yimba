@@ -30,6 +30,7 @@ class Settings(BaseSettings):
 
     # Collection: official APIs only. A source without credentials has no collector and is never planned.
     NEWS_EXTRA_FEEDS: str = ""
+    GDELT_ENABLED: bool = True
     YOUTUBE_API_KEY: str | None = None
     YOUTUBE_COMMENT_VIDEOS: int = 5
     BLUESKY_HANDLE: str | None = None

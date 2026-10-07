@@ -11,3 +11,4 @@ class SourceKind(StrEnum):
     YOUTUBE = "youtube"
     BLUESKY = "bluesky"
     NEWS = "news"
+    GDELT = "gdelt"
