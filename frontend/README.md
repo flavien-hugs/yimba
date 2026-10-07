@@ -30,18 +30,17 @@ environ 50 Ko de JavaScript et 7 Ko de CSS (compressés), chaque page charge ens
 ```
 frontend/
 ├── apps/
-│   ├── user/            application utilisateur (base /)
+│   ├── user/            application utilisateur (base /) : Dockerfile, configuration nginx
 │   │   └── src/
 │   │       ├── lib/         formulaire de veille, carte de conversation, répartitions, veille courante
 │   │       └── routes/      connexion, inscription, (app)/ : accueil, paroles, alertes, veilles/, compte
-│   └── admin/           administration (base /admin)
+│   └── admin/           administration (base /admin) : Dockerfile, configuration nginx
 │       └── src/routes/      connexion, (admin)/ : comptes
 ├── packages/
 │   ├── api/             client de l'API : types générés, appels, session (jetons), messages d'erreur en français
 │   └── ui/              thème Tailwind, composants partagés (logo, bande de pagne, baobab, formulaire de connexion,
 │                        graphique, champs), formats français (nombres, dates), libellés
-├── nginx/               configuration du serveur de l'image
-├── Dockerfile
+├── nginx/               en-têtes de sécurité communs aux deux images
 └── Makefile             make help
 ```
 
@@ -85,18 +84,20 @@ make check         # le compilateur signale chaque appel à adapter
 
 ## Images
 
-Une image par application, chacune avec son propre constructeur (le `Dockerfile` a deux cibles) :
+Une image par application, chacune avec son propre `Dockerfile` et son propre constructeur :
 
-| Application | Cible | Image | Adresse locale |
+| Application | Dockerfile | Image | Adresse locale |
 |---|---|---|---|
-| utilisateur | `user` | `ghcr.io/flavien-hugs/yimba-frontend-user` | http://localhost:3000 (`FRONTEND_PORT`) |
-| administration | `admin` | `ghcr.io/flavien-hugs/yimba-frontend-admin` | http://localhost:3001/admin (`ADMIN_PORT`) |
+| utilisateur | `apps/user/Dockerfile` | `ghcr.io/flavien-hugs/yimba-frontend-user` | http://localhost:3000 (`FRONTEND_PORT`) |
+| administration | `apps/admin/Dockerfile` | `ghcr.io/flavien-hugs/yimba-frontend-admin` | http://localhost:3001/admin (`ADMIN_PORT`) |
 
 `make run` à la racine les construit et les lance (services `frontend` et `admin`). À la main :
-`docker build --target user -t yimba-frontend-user frontend` (idem avec `admin`).
+`docker build -f apps/user/Dockerfile -t yimba-frontend-user .` depuis `frontend/` (idem avec `admin`).
 
-- Les deux constructeurs partagent le téléchargement des dépendances (`pnpm fetch`) mais pas les sources : modifier
-  l'administration ne reconstruit pas l'application utilisateur, et chacune n'installe et ne compile que ses paquets.
+- Les deux images n'ont rien en commun que la configuration des en-têtes de sécurité (`nginx/`) : chaque `Dockerfile` a
+  son contexte (`apps/<app>/Dockerfile.dockerignore`, en liste blanche, sans les sources de l'autre application), donc
+  modifier l'administration ne reconstruit pas l'application utilisateur, et chacune n'installe et ne compile que ses
+  paquets.
 - Chaque application ouvre l'autre par son adresse extérieure, fixée à la construction : `VITE_ADMIN_URL` (lien
   « Administration » des paramètres) et `VITE_USER_URL` (lien « Aller sur Yimba »), en variables `FRONTEND_ADMIN_URL`
   et `FRONTEND_USER_URL` pour compose. Par défaut : les adresses locales ci-dessus. Derrière un même nom de domaine

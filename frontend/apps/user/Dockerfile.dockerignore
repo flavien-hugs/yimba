@@ -1,0 +1,22 @@
+# Build context of the user image (docker build -f apps/user/Dockerfile .).
+# Allowlist: the manifests and the lockfile, the sources of this app and of the shared packages, the nginx configuration.
+# Nothing of the admin app but its manifest (the lockfile lists it). Neither node_modules nor build output nor .env
+# reach the build: dependencies are installed from the lockfile inside the image.
+*
+!package.json
+!pnpm-lock.yaml
+!pnpm-workspace.yaml
+!.npmrc
+!nginx/
+!apps/*/package.json
+!apps/user/nginx.conf.template
+!apps/user/tsconfig.json
+!apps/user/vite.config.ts
+!apps/user/src/
+!packages/*/package.json
+!packages/*/tsconfig.json
+!packages/*/src/
+
+# Inside the allowed directories
+**/*.test.ts
+**/.DS_Store

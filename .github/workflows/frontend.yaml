@@ -1,6 +1,7 @@
 name: Frontend
 
-# Checks, builds and publishes the frontend: one image per app (user app, administration), each with its own builder.
+# Checks, builds and publishes the frontend: one image per app (user app, administration), each with its own
+# Dockerfile (frontend/apps/<app>/Dockerfile).
 # Runs when the frontend changes, and on every git tag. On pull requests: check and image. On a push to main, preprod or develop, or a tag: the same,
 # then the image is published to GHCR, only if both succeeded:
 #   main -> latest, develop -> dev, preprod -> preprod, tag v1.2.0 -> v1.2.0 (plus the commit sha, for rollbacks),
@@ -85,7 +86,7 @@ jobs:
         uses: docker/build-push-action@v6
         with:
           context: frontend
-          target: ${{ matrix.app }}
+          file: frontend/apps/${{ matrix.app }}/Dockerfile
           load: true
           tags: yimba-frontend-${{ matrix.app }}:ci
           cache-from: type=gha,scope=frontend-${{ matrix.app }}
@@ -142,7 +143,7 @@ jobs:
         uses: docker/build-push-action@v6
         with:
           context: frontend
-          target: ${{ matrix.app }}
+          file: frontend/apps/${{ matrix.app }}/Dockerfile
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
