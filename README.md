@@ -24,6 +24,77 @@ yimba/
 Chaque application a ses dépendances, son image Docker et son workflow de CI, déclenché seulement quand ses fichiers
 changent.
 
+## Comment ça marche
+
+### Vue d'ensemble
+
+Une seule image backend, lancée sous trois formes (`api`, `worker`, `beat`). Les deux applications web sont des fichiers
+statiques servis par nginx, qui relaie `/api` vers l'API.
+
+```mermaid
+flowchart LR
+    user(["Utilisateur"]) --> web["Application web<br/>SvelteKit, nginx :3000"]
+    admin(["Administrateur"]) --> adminweb["Administration<br/>SvelteKit, nginx :3001"]
+    web -- "/api" --> api
+    adminweb -- "/api" --> api
+
+    subgraph backend["Backend : une image, trois processus"]
+        api["api<br/>FastAPI"]
+        beat["beat<br/>planificateur"]
+        worker["worker<br/>Celery"]
+    end
+
+    api --> pg[("PostgreSQL")]
+    beat -- "tâches" --> redis[("Redis<br/>file")]
+    redis --> worker
+    worker --> pg
+
+    worker -- "collecte" --> sources["Sources<br/>presse RSS, GDELT, YouTube,<br/>Bluesky, Facebook, Instagram"]
+    worker -- "analyse" --> nlp["Langue, sentiment, émotion<br/>lexique ou transformers"]
+
+    pg -.-> dbt["dbt et Pandera"]
+    dbt -.-> superset["Superset"]
+```
+
+Les éléments en pointillés (dbt, Superset) sont optionnels : ils démarrent derrière un profil `docker compose`.
+
+### Du texte collecté à l'alerte
+
+```mermaid
+flowchart LR
+    beat["beat<br/>chaque minute"] --> plan["Planifier :<br/>quelles veilles et sources<br/>sont dues ?"]
+    plan --> collect["Collecter la source"]
+    collect --> raw[("Archive brute")]
+    collect --> ingest["Normaliser, dédoublonner,<br/>anonymiser l'auteur"]
+    ingest --> analyze["Analyser :<br/>langue, sentiment, émotion"]
+    analyze --> store[("Conversations")]
+    store --> eval{"Négatif au-dessus<br/>du seuil de la veille ?"}
+    eval -- "oui, assez de conversations" --> alert["Créer l'alerte"]
+    eval -- "non" --> wait["Rien à signaler"]
+    alert --> notify["Prévenir l'utilisateur"]
+```
+
+### Parcours d'un utilisateur
+
+```mermaid
+flowchart TD
+    start(["Arrivée sur Yimba"]) --> has{"Un compte ?"}
+    has -- "non" --> signup["Inscription"]
+    has -- "oui" --> login["Connexion"]
+    signup --> pending["Compte en attente de validation"]
+    pending -- "validé par un administrateur" --> login
+    login --> home["Tableau de bord"]
+    home --> watch{"Une veille existe ?"}
+    watch -- "non" --> create["Créer une veille en trois étapes :<br/>sujet, où écouter, quand prévenir"]
+    create --> home
+    watch -- "oui" --> explore["Explorer"]
+    explore --> voices["Paroles :<br/>lire les conversations, filtrer,<br/>ouvrir l'article"]
+    explore --> alerts["Alertes :<br/>lire les conversations concernées,<br/>marquer comme traité"]
+    explore --> mine["Mes veilles :<br/>régler, mettre en pause, créer"]
+    explore --> settings["Paramètres :<br/>période par défaut, mot de passe"]
+    alerts --> voices
+```
+
 ## Démarrage
 
 Prérequis : Docker Engine 25 et Compose 2.24, ou plus récents. La pile de base tient dans 2 CPU et 1 Go de RAM ; prévoir 2 Go de
